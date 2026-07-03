@@ -55,6 +55,13 @@ interface DocumentListItem {
   chunks: number;
 }
 
+interface ModelOption {
+  id: string;
+  label: string;
+  provider: string;
+  available: boolean;
+}
+
 const ChatInterface: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -64,6 +71,8 @@ const ChatInterface: React.FC = () => {
   const [isClearing, setIsClearing] = useState(false);
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [docError, setDocError] = useState<string | null>(null);
+  const [models, setModels] = useState<ModelOption[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState('auto');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const apiBase = getApiBaseUrl();
@@ -88,6 +97,24 @@ const ChatInterface: React.FC = () => {
   }, [refreshDocuments]);
 
   useEffect(() => {
+    const loadModels = async () => {
+      try {
+        const res = await fetch(`${apiBase}/models`);
+        if (!res.ok) return;
+        const data = (await res.json()) as ModelOption[];
+        if (Array.isArray(data) && data.length > 0) {
+          setModels(data);
+          const auto = data.find((m) => m.id === 'auto');
+          if (auto) setSelectedModelId('auto');
+        }
+      } catch {
+        /* models endpoint optional until backend restarts */
+      }
+    };
+    void loadModels();
+  }, [apiBase]);
+
+  useEffect(() => {
     const id = window.setInterval(() => refreshRelativeTimes(), 30000);
     return () => window.clearInterval(id);
   }, [refreshRelativeTimes]);
@@ -110,7 +137,7 @@ const ChatInterface: React.FC = () => {
       const res = await fetch(`${apiBase}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed }),
+        body: JSON.stringify({ message: trimmed, model_id: selectedModelId }),
       });
 
       if (!res.ok) {
@@ -200,6 +227,27 @@ const ChatInterface: React.FC = () => {
       <div className={styles.shell}>
         <div className={styles.shellInner}>
           <div className={styles.toolbar}>
+            <label className={styles.modelWrap}>
+              <span className={styles.modelLabel}>Model</span>
+              <select
+                className={styles.modelSelect}
+                value={selectedModelId}
+                onChange={(e) => setSelectedModelId(e.target.value)}
+                disabled={isLoading || models.length === 0}
+                aria-label="Select AI model"
+              >
+                {models.length === 0 ? (
+                  <option value="auto">Auto Router</option>
+                ) : (
+                  models.map((m) => (
+                    <option key={m.id} value={m.id} disabled={!m.available && m.id !== 'auto'}>
+                      {m.label}
+                      {!m.available && m.id !== 'auto' ? ' (unavailable)' : ''}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
             <button
               type="button"
               className={styles.clearBtn}

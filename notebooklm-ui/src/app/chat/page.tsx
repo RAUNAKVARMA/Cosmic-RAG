@@ -1,18 +1,17 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import ChatInterface from '../../components/ChatInterface';
 import styles from './ChatPage.module.css';
 
+const CosmicBackdrop = dynamic(() => import('@/components/CosmicBackdrop'), { ssr: false });
+
 export default function ChatPage() {
   return (
     <div className={styles.page}>
-      <div className={styles.bgLayer} aria-hidden>
-        <div className={`${styles.stars} ${styles.bgLayer}`} />
-        <div className={`${styles.nebula} ${styles.bgLayer}`} />
-        <div className={`${styles.grid} ${styles.bgLayer}`} />
-        <div className={`${styles.vignette} ${styles.bgLayer}`} />
-      </div>
+      <CosmicBackdrop />
+      <div className={styles.vignette} aria-hidden />
 
       <nav className={styles.nav}>
         <Link href="/" className={styles.backLink}>
@@ -47,7 +46,7 @@ export default function ChatPage() {
           <span className={styles.navTitle}>Cosmic RAG</span>
         </div>
 
-        <span className={styles.badge}>Groq · RAG</span>
+        <span className={styles.badge}>Multi-LLM · RAG</span>
       </nav>
 
       <main className={styles.main}>

@@ -15,6 +15,7 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 
 from app.document_parser import extract_text_from_bytes
 from app.knowledge_graph import KnowledgeGraphBuilder
+from app.llm_router import list_models
 from app.rag_engine import RAGEngine
 from app.vector_store import VectorStore
 
@@ -50,6 +51,14 @@ rag_engine = RAGEngine(vector_store, knowledge_graph)
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1)
+    model_id: Optional[str] = None
+
+
+class ModelInfo(BaseModel):
+    id: str
+    label: str
+    provider: str
+    available: bool
 
 
 class ChatResponse(BaseModel):
@@ -67,10 +76,15 @@ def health_check() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/models", response_model=List[ModelInfo])
+def get_models() -> List[ModelInfo]:
+    return [ModelInfo(**m) for m in list_models()]
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
     try:
-        answer, sources = rag_engine.answer_query(request.message)
+        answer, sources = rag_engine.answer_query(request.message, model_id=request.model_id)
         return ChatResponse(answer=answer, sources=sources, timestamp=_utc_iso())
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Unable to complete chat request.") from exc

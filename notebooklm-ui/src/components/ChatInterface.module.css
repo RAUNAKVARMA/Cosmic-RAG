@@ -24,15 +24,60 @@
 
 .shellInner {
   border-radius: 23px;
-  background: linear-gradient(165deg, rgba(12, 14, 32, 0.97) 0%, rgba(4, 6, 18, 0.99) 100%);
+  background: linear-gradient(165deg, rgba(12, 14, 32, 0.42) 0%, rgba(4, 6, 18, 0.5) 100%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   overflow: hidden;
 }
 
 .toolbar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   padding: 0.65rem 1rem 0;
+  flex-wrap: wrap;
+}
+
+.modelWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.modelLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(165, 243, 252, 0.55);
+  flex-shrink: 0;
+}
+
+.modelSelect {
+  min-height: 36px;
+  max-width: min(220px, 55vw);
+  padding: 0.35rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  background: rgba(3, 6, 18, 0.55);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.modelSelect:focus {
+  outline: none;
+  border-color: rgba(0, 229, 255, 0.45);
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.08);
+}
+
+.modelSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .clearBtn {
@@ -82,14 +127,16 @@
 }
 
 .dialog {
-  background: linear-gradient(160deg, #0f1428 0%, #060a16 100%);
-  border: 1px solid rgba(0, 229, 255, 0.22);
+  background: linear-gradient(160deg, rgba(15, 20, 40, 0.82) 0%, rgba(6, 10, 22, 0.85) 100%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border-strong);
   border-radius: 18px;
   padding: 1.75rem;
   max-width: 400px;
   box-shadow:
     0 24px 64px rgba(0, 0, 0, 0.65),
-    0 0 48px rgba(168, 85, 247, 0.08);
+    0 0 48px rgba(168, 85, 247, 0.12);
 }
 
 .dialog h3 {
@@ -281,9 +328,11 @@
   min-width: 0;
   padding: 0.85rem 1.05rem;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(8, 12, 28, 0.65);
-  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  background: rgba(10, 14, 30, 0.5);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .msgRowUser .msgCard {
@@ -467,11 +516,13 @@ details[open] > .sourcesSummary::before {
   min-width: 0;
   padding: 0.85rem 1.1rem;
   border-radius: 14px;
-  border: 1px solid rgba(0, 229, 255, 0.15);
-  background: rgba(3, 6, 18, 0.85);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  background: rgba(6, 10, 24, 0.45);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   color: #f1f5f9;
   font-size: 0.95rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
 }
 
 .input::placeholder {
@@ -535,8 +586,10 @@ details[open] > .sourcesSummary::before {
   margin: 0.65rem 0 0;
   padding: 0;
   border-radius: 14px;
-  border: 1px solid rgba(0, 229, 255, 0.08);
-  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--glass-border);
+  background: rgba(6, 10, 24, 0.4);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
   overflow: hidden;
 }
 
