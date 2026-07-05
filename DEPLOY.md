@@ -61,12 +61,32 @@ Redeploy the frontend.
 
 ```bash
 curl https://cosmic-rag-api.onrender.com/models
+curl https://cosmic-rag-api.onrender.com/image-models
 ```
 
 Expect:
 
 - `ollama-llama3.2-1b` → `"available": true` (after Ollama service is warm)
 - NIM models → `"available": true` if `NVIDIA_API_KEY` is set
+- Image Studio models → `"available": true` when the matching keys are set (see below)
+
+## Image Studio on Render
+
+On **`cosmic-rag-api`** → Environment, add the keys you use locally (same names as `backend/.env.example`):
+
+| Variable | Used for |
+|----------|----------|
+| `POLLINATIONS_API_KEY` | Pollinations FLUX, Z-Image, Nano Banana, etc. |
+| `REPLICATE_API_KEY` or `Replicate_API_KEY` | Replicate FLUX / SDXL |
+| `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` | Cloudflare Workers AI (**both required**) |
+
+Redeploy after saving. Models without keys still appear in the UI but show **(setup needed)** until configured.
+
+Vercel must have:
+
+```
+NEXT_PUBLIC_API_URL=https://cosmic-rag-api.onrender.com
+```
 
 ## Cold starts (free / spin-down)
 

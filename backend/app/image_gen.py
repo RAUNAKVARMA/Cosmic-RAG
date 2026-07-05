@@ -213,20 +213,30 @@ def _gemini_api_key() -> str:
     return (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
 
 
+def _env(*keys: str) -> str:
+    """Return the first non-empty environment variable from ``keys``."""
+    for key in keys:
+        value = (os.getenv(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
 def _cloudflare_account() -> str:
-    return (os.getenv("CLOUDFLARE_ACCOUNT_ID") or "").strip()
+    return _env("CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_ACCOUNT")
 
 
 def _cloudflare_token() -> str:
-    return (os.getenv("CLOUDFLARE_API_TOKEN") or "").strip()
+    return _env("CLOUDFLARE_API_TOKEN", "CLOUDFLARE_TOKEN")
 
 
 def _replicate_api_key() -> str:
-    return (os.getenv("REPLICATE_API_KEY") or os.getenv("REPLICATE_API_TOKEN") or "").strip()
+    # Accept common Render dashboard spellings (case-sensitive on Linux).
+    return _env("REPLICATE_API_KEY", "REPLICATE_API_TOKEN", "Replicate_API_KEY")
 
 
 def _pollinations_api_key() -> str:
-    return (os.getenv("POLLINATIONS_API_KEY") or "").strip()
+    return _env("POLLINATIONS_API_KEY", "Pollinations_API_KEY")
 
 
 def _resolve_target(model: ImageModel) -> Tuple[str, bool]:
