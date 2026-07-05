@@ -53,15 +53,59 @@ In Vercel → Project → **Environment Variables**:
 
 ```
 NEXT_PUBLIC_API_URL=https://cosmic-rag-api.onrender.com
+NEXT_PUBLIC_API_SECRET=<same value as API_SECRET on Render>
 ```
 
 Redeploy the frontend.
 
+## Production security (recommended)
+
+On **`cosmic-rag-api`** → Environment:
+
+| Variable | Purpose |
+|----------|---------|
+| `API_SECRET` | Random string; required on `POST /chat`, `/upload`, `/generate-image` |
+| `IMAGE_GEN_RATE_LIMIT` | Max generations per IP per window (default `10`) |
+| `IMAGE_GEN_RATE_WINDOW_SECONDS` | Window in seconds (default `3600` = 1 hour) |
+| `VECTOR_INDEX_PATH` | `/data/vector_index` (with persistent disk — see below) |
+
+Generate a secret:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Set the **same value** on Vercel as `NEXT_PUBLIC_API_SECRET` so the browser sends `Authorization: Bearer …`.
+
+> **Note:** `NEXT_PUBLIC_*` is visible in the client bundle. This stops casual abuse and bots, not determined attackers. For stronger security, proxy through Next.js server routes later.
+
+## Persistent RAG documents (Render disk)
+
+Without a disk, uploaded documents are **lost on every redeploy**. The blueprint mounts a 1 GB disk at `/data`:
+
+```
+VECTOR_INDEX_PATH=/data/vector_index
+```
+
+After first deploy with the disk, uploads persist across restarts.
+
 ## Step 3 — Verify
 
 ```bash
+curl https://cosmic-rag-api.onrender.com/health
 curl https://cosmic-rag-api.onrender.com/models
 curl https://cosmic-rag-api.onrender.com/image-models
+```
+
+Expect `/health` to include `"auth_required": true` when `API_SECRET` is set.
+
+Protected endpoints (require `Authorization: Bearer $API_SECRET`):
+
+```bash
+curl -X POST https://cosmic-rag-api.onrender.com/chat \
+  -H "Authorization: Bearer YOUR_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"hello"}'
 ```
 
 Expect:

@@ -1,0 +1,33 @@
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# RAG vector index (local / ephemeral)
+vector_index.faiss
+vector_index.pkl
+**/vector_index.faiss
+**/vector_index.pkl
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# IDE / OS
+.DS_Store
+.cursor/
+*.log
+
+# Vercel
+.vercel

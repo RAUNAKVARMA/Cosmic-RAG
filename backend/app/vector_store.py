@@ -1,14 +1,24 @@
 import numpy as np
 import faiss
-from typing import List, Dict, Optional
+from typing import List, Dict
 import pickle
 import os
 
+
+def _default_index_path() -> str:
+    """Base path for FAISS index files (without extension).
+
+    On Render, set ``VECTOR_INDEX_PATH=/data/vector_index`` with a persistent disk
+    mounted at ``/data``.
+    """
+    return (os.getenv("VECTOR_INDEX_PATH") or "vector_index").strip()
+
+
 class VectorStore:
-    def __init__(self, dimension: int = 384, index_path: str = "vector_index"):
-        """Initialize vector store with FAISS"""
+    def __init__(self, dimension: int = 384, index_path: str | None = None):
+        """Initialize vector store with FAISS."""
         self.dimension = dimension
-        self.index_path = index_path
+        self.index_path = index_path if index_path is not None else _default_index_path()
         self.index = faiss.IndexFlatL2(dimension)
         self.chunks_metadata = []
         self.chunk_texts = []

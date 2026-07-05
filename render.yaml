@@ -29,7 +29,19 @@ services:
     plan: free
     rootDir: backend
     dockerfilePath: ./Dockerfile
+    disk:
+      name: rag-vector-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
+      - key: VECTOR_INDEX_PATH
+        value: /data/vector_index
+      - key: API_SECRET
+        sync: false
+      - key: IMAGE_GEN_RATE_LIMIT
+        value: "10"
+      - key: IMAGE_GEN_RATE_WINDOW_SECONDS
+        value: "3600"
       - key: NVIDIA_API_KEY
         sync: false
       - key: POLLINATIONS_API_KEY

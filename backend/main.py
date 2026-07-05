@@ -6,7 +6,7 @@ from typing import List, Literal, Optional
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -18,6 +18,7 @@ from app.image_gen import ImageGenError, generate_image, list_image_models
 from app.knowledge_graph import KnowledgeGraphBuilder
 from app.llm_router import list_models
 from app.rag_engine import RAGEngine
+from app.security import api_secret, check_image_gen_rate_limit, verify_api_auth
 from app.vector_store import VectorStore
 
 app = FastAPI(title="Cosmic RAG API")
@@ -113,7 +114,15 @@ def _utc_iso() -> str:
 
 @app.get("/health")
 def health_check() -> dict:
-    return {"status": "ok"}
+    image_models = list_image_models()
+    return {
+        "status": "ok",
+        "auth_required": bool(api_secret()),
+        "vector_index_path": vector_store.index_path,
+        "vector_count": vector_store.index.ntotal,
+        "image_models_available": sum(1 for m in image_models if m.get("available")),
+        "image_models_total": len(image_models),
+    }
 
 
 @app.get("/models", response_model=List[ModelInfo])
@@ -121,7 +130,7 @@ def get_models() -> List[ModelInfo]:
     return [ModelInfo(**m) for m in list_models()]
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post("/chat", response_model=ChatResponse, dependencies=[Depends(verify_api_auth)])
 def chat(request: ChatRequest) -> ChatResponse:
     try:
         history_payload = (
@@ -144,8 +153,12 @@ def get_image_models() -> List[ImageModelInfo]:
     return [ImageModelInfo(**m) for m in list_image_models()]
 
 
-@app.post("/generate-image", response_model=GenerateImageResponse)
-def generate_image_endpoint(request: GenerateImageRequest) -> GenerateImageResponse:
+@app.post("/generate-image", response_model=GenerateImageResponse, dependencies=[Depends(verify_api_auth)])
+def generate_image_endpoint(
+    request: GenerateImageRequest,
+    http_request: Request,
+) -> GenerateImageResponse:
+    check_image_gen_rate_limit(http_request)
     import base64 as _b64
 
     try:
@@ -190,7 +203,7 @@ def list_documents() -> List[dict]:
     return out
 
 
-@app.post("/upload")
+@app.post("/upload", dependencies=[Depends(verify_api_auth)])
 async def upload_document(file: UploadFile = File(...)) -> dict:
     filename = file.filename or "unnamed"
     ext = ""

@@ -15,6 +15,22 @@ export function getApiBaseUrl(): string {
   return '/api/rag';
 }
 
+/** Optional Bearer token — must match backend ``API_SECRET`` when auth is enabled. */
+export function getApiSecret(): string | undefined {
+  const secret = process.env.NEXT_PUBLIC_API_SECRET?.trim();
+  return secret || undefined;
+}
+
+/** Default headers for authenticated API calls. */
+export function apiHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = { ...extra };
+  const secret = getApiSecret();
+  if (secret) {
+    headers.Authorization = `Bearer ${secret}`;
+  }
+  return headers;
+}
+
 export interface ImageModel {
   id: string;
   label: string;
@@ -58,7 +74,7 @@ export async function generateImage(params: {
 }): Promise<GenerateImageResult> {
   const res = await fetch(`${getApiBaseUrl()}/generate-image`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: apiHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       prompt: params.prompt,
       model_id: params.modelId,

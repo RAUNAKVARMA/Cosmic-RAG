@@ -18,7 +18,7 @@ import {
   type Conversation,
   type SourceRef,
 } from '@/lib/chatHistory';
-import { getApiBaseUrl, parseApiErrorResponse } from '@/lib/api';
+import { apiHeaders, getApiBaseUrl, parseApiErrorResponse } from '@/lib/api';
 import { formatRelativeTime } from '@/lib/time';
 import styles from './ChatInterface.module.css';
 
@@ -189,7 +189,7 @@ const ChatInterface: React.FC = () => {
     try {
       const res = await fetch(`${apiBase}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           message: trimmed,
           model_id: selectedModelId,
@@ -256,6 +256,7 @@ const ChatInterface: React.FC = () => {
       try {
         const res = await fetch(`${apiBase}/upload`, {
           method: 'POST',
+          headers: apiHeaders(),
           body: form,
         });
         if (!res.ok) {
