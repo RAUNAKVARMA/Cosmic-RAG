@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
 from app.document_parser import extract_text_from_bytes
+from app.image_gen import ImageGenError, generate_image, list_image_models
 from app.knowledge_graph import KnowledgeGraphBuilder
 from app.llm_router import list_models
 from app.rag_engine import RAGEngine
@@ -73,6 +74,38 @@ class ChatResponse(BaseModel):
     timestamp: str
 
 
+class ImageModelInfo(BaseModel):
+    id: str
+    label: str
+    vendor: str
+    output: str
+    available: bool
+    supports_steps: bool
+    supports_negative_prompt: bool
+    supports_mode: bool
+    modes: List[str]
+    default_steps: Optional[int] = None
+    description: str = ""
+
+
+class GenerateImageRequest(BaseModel):
+    prompt: str = Field(..., min_length=1)
+    model_id: str = Field(..., min_length=1)
+    seed: int = 0
+    steps: Optional[int] = Field(default=None, ge=1, le=100)
+    negative_prompt: Optional[str] = None
+    mode: Optional[str] = None
+
+
+class GenerateImageResponse(BaseModel):
+    image: str
+    mime: str
+    model_id: str
+    seed: int
+    output: str
+    timestamp: str
+
+
 def _utc_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -103,6 +136,40 @@ def chat(request: ChatRequest) -> ChatResponse:
         return ChatResponse(answer=answer, sources=sources, timestamp=_utc_iso())
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Unable to complete chat request.") from exc
+
+
+@app.get("/image-models", response_model=List[ImageModelInfo])
+def get_image_models() -> List[ImageModelInfo]:
+    return [ImageModelInfo(**m) for m in list_image_models()]
+
+
+@app.post("/generate-image", response_model=GenerateImageResponse)
+def generate_image_endpoint(request: GenerateImageRequest) -> GenerateImageResponse:
+    import base64 as _b64
+
+    try:
+        raw, mime, meta = generate_image(
+            model_id=request.model_id,
+            prompt=request.prompt,
+            seed=request.seed,
+            steps=request.steps,
+            negative_prompt=request.negative_prompt,
+            mode=request.mode,
+        )
+    except ImageGenError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Unable to generate image.") from exc
+
+    data_uri = f"data:{mime};base64,{_b64.b64encode(raw).decode('ascii')}"
+    return GenerateImageResponse(
+        image=data_uri,
+        mime=mime,
+        model_id=str(meta.get("model_id", request.model_id)),
+        seed=int(meta.get("seed", request.seed)),
+        output=str(meta.get("output", "image")),
+        timestamp=_utc_iso(),
+    )
 
 
 @app.get("/documents")
