@@ -7,9 +7,12 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import type { NebulaHoverState } from './nebulaHover';
 
 interface SpaceSceneProps {
   onBlackHoleClick?: () => void;
+  onImageStudioNebulaClick?: () => void;
+  onNebulaHoverChange?: (state: NebulaHoverState | null) => void;
   /** When false, the scene renders as a fixed, non-interactive backdrop (no pointer events, no click). */
   interactive?: boolean;
   /** z-index applied to the canvas container. */
@@ -75,10 +78,20 @@ function makeCloud(
   return pts;
 }
 
-const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick, interactive = true, zIndex = 0 }) => {
+const SpaceScene: React.FC<SpaceSceneProps> = ({
+  onBlackHoleClick,
+  onImageStudioNebulaClick,
+  onNebulaHoverChange,
+  interactive = true,
+  zIndex = 0,
+}) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const clickRef = useRef(onBlackHoleClick);
+  const nebulaClickRef = useRef(onImageStudioNebulaClick);
+  const nebulaHoverRef = useRef(onNebulaHoverChange);
   useEffect(() => { clickRef.current = onBlackHoleClick; }, [onBlackHoleClick]);
+  useEffect(() => { nebulaClickRef.current = onImageStudioNebulaClick; }, [onImageStudioNebulaClick]);
+  useEffect(() => { nebulaHoverRef.current = onNebulaHoverChange; }, [onNebulaHoverChange]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -584,11 +597,44 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick, interactive =
     )).rotation.x = -Math.PI / 2;
     scene.add(solarGroup);
 
-    const clickTargets: THREE.Object3D[] = [eventHorizon, accDisk, photonRing, ...glowLayers];
+    /* ── Image Studio hotspot (Crab-like orange/teal nebula) ─────── */
+    const imageStudioHotspot = new THREE.Mesh(
+      new THREE.SphereGeometry(14, 16, 16),
+      new THREE.MeshBasicMaterial({ visible: false }),
+    );
+    imageStudioHotspot.position.set(40, 25, -40);
+    imageStudioHotspot.userData.hotspot = 'image-studio';
+    scene.add(imageStudioHotspot);
+
+    const blackHoleTargets: THREE.Object3D[] = [eventHorizon, accDisk, photonRing, ...glowLayers];
+    const nebulaTargets: THREE.Object3D[] = [imageStudioHotspot];
+    const nebulaWorld = new THREE.Vector3();
+
+    const projectNebulaToScreen = (): NebulaHoverState | null => {
+      imageStudioHotspot.getWorldPosition(nebulaWorld);
+      nebulaWorld.project(camera);
+      if (nebulaWorld.z > 1) return null;
+      const r = renderer.domElement.getBoundingClientRect();
+      return {
+        x: r.left + (nebulaWorld.x * 0.5 + 0.5) * r.width,
+        y: r.top + (-nebulaWorld.y * 0.5 + 0.5) * r.height,
+        visible: true,
+      };
+    };
+
+    const emitNebulaHover = (active: boolean) => {
+      if (!nebulaHoverRef.current) return;
+      if (!active) {
+        nebulaHoverRef.current(null);
+        return;
+      }
+      const projected = projectNebulaToScreen();
+      nebulaHoverRef.current(projected);
+    };
 
     /* ── Interaction ─────────────────────────────────────────────── */
     const pointerDownPos = new THREE.Vector2();
-    let hovered = false;
+    let hoveredTarget: 'none' | 'blackhole' | 'nebula' = 'none';
     const parallax = { x: 0, y: 0 };
     const updatePointer = (e: PointerEvent) => {
       const r = renderer.domElement.getBoundingClientRect();
@@ -600,15 +646,31 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick, interactive =
     const onPointerMove = (e: PointerEvent) => {
       updatePointer(e);
       raycaster.setFromCamera(pointer, camera);
-      const over = raycaster.intersectObjects(clickTargets, false).length > 0;
-      if (over !== hovered) { hovered = over; renderer.domElement.style.cursor = over ? 'pointer' : 'grab'; }
+      const overNebula = raycaster.intersectObjects(nebulaTargets, false).length > 0;
+      const overBlackHole = raycaster.intersectObjects(blackHoleTargets, false).length > 0;
+      const next: 'none' | 'blackhole' | 'nebula' = overNebula
+        ? 'nebula'
+        : overBlackHole
+          ? 'blackhole'
+          : 'none';
+      if (next !== hoveredTarget) {
+        hoveredTarget = next;
+        renderer.domElement.style.cursor = next !== 'none' ? 'pointer' : 'grab';
+        emitNebulaHover(next === 'nebula');
+      }
     };
     const onPointerDown = (e: PointerEvent) => { pointerDownPos.set(e.clientX, e.clientY); };
     const onPointerUp = (e: PointerEvent) => {
       if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) > 5) return;
       updatePointer(e);
       raycaster.setFromCamera(pointer, camera);
-      if (raycaster.intersectObjects(clickTargets, false).length > 0 && clickRef.current) clickRef.current();
+      if (raycaster.intersectObjects(nebulaTargets, false).length > 0) {
+        nebulaClickRef.current?.();
+        return;
+      }
+      if (raycaster.intersectObjects(blackHoleTargets, false).length > 0 && clickRef.current) {
+        clickRef.current();
+      }
     };
     if (interactive) {
       renderer.domElement.style.cursor = 'grab';
@@ -651,7 +713,10 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick, interactive =
       const jOp = 0.04 + Math.sin(t * 1.2) * 0.03;
       (jetUp.material as THREE.MeshBasicMaterial).opacity = jOp;
       (jetDown.material as THREE.MeshBasicMaterial).opacity = jOp;
-      bhGroup.scale.setScalar(1 + (hovered ? Math.sin(t * 4) * 0.04 : 0));
+      bhGroup.scale.setScalar(1 + (hoveredTarget === 'blackhole' ? Math.sin(t * 4) * 0.04 : 0));
+      if (hoveredTarget === 'nebula') {
+        crabPulsar.scale.setScalar(1.1 + Math.sin(t * 5) * 0.15);
+      }
 
       pulsarData.forEach((p, i) => {
         const f = 4 + i * 1.3;
@@ -677,7 +742,9 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick, interactive =
 
       (whiteDwarf.material as THREE.MeshBasicMaterial).opacity = 0.85 + Math.sin(t * 6) * 0.1;
       (crabPulsar.material as THREE.MeshBasicMaterial).opacity = 0.5 + Math.abs(Math.sin(t * 30)) * 0.5;
-      crabPulsar.scale.setScalar(0.8 + Math.abs(Math.sin(t * 30)) * 0.4);
+      if (hoveredTarget !== 'nebula') {
+        crabPulsar.scale.setScalar(0.8 + Math.abs(Math.sin(t * 30)) * 0.4);
+      }
 
       planetData.forEach((p) => {
         p.angle += p.speed * dt;
@@ -699,6 +766,7 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick, interactive =
     }
 
     return () => {
+      emitNebulaHover(false);
       cancelAnimationFrame(raf);
       controls.removeEventListener('change', renderFrame);
       controls.dispose();
