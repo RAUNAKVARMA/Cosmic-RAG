@@ -33,6 +33,19 @@ interface ChatMessage {
 
 const MAX_ATTACHMENTS = 4;
 
+const PROVIDER_GROUPS: { key: string; label: string }[] = [
+  { key: 'pollinations', label: 'Pollinations' },
+  { key: 'cloudflare', label: 'Cloudflare' },
+  { key: 'replicate', label: 'Replicate' },
+];
+
+function modelProvider(id: string): string {
+  if (id.startsWith('pollinations-')) return 'pollinations';
+  if (id.startsWith('cf-')) return 'cloudflare';
+  if (id.startsWith('replicate-')) return 'replicate';
+  return 'other';
+}
+
 function makeId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -44,6 +57,7 @@ export default function ImageStudioChat() {
   const [isDragging, setIsDragging] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [models, setModels] = useState<ImageModel[]>([]);
+  const [modelsError, setModelsError] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
   const [history, setHistory] = useState<ImageHistoryEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -80,16 +94,27 @@ export default function ImageStudioChat() {
     fetchImageModels()
       .then((list) => {
         if (cancelled) return;
-        const imageModels = list.filter((m) => m.output === 'image' && m.available);
+        const imageModels = list.filter((m) => m.output === 'image');
         setModels(imageModels);
-        const preferred = imageModels.find((m) => m.id === lastGenerateModelRef.current) ?? imageModels[0];
+        setModelsError('');
+        const available = imageModels.filter((m) => m.available);
+        const preferred =
+          available.find((m) => m.id === lastGenerateModelRef.current) ??
+          available[0] ??
+          imageModels.find((m) => m.id === lastGenerateModelRef.current) ??
+          imageModels[0];
         if (preferred) {
           lastGenerateModelRef.current = preferred.id;
           setSelectedModel(preferred.id);
         }
       })
-      .catch(() => {
-        if (!cancelled) setModels([]);
+      .catch((err) => {
+        if (!cancelled) {
+          setModels([]);
+          setModelsError(
+            err instanceof Error ? err.message : 'Could not load image models from the API.',
+          );
+        }
       });
     return () => {
       cancelled = true;
@@ -129,11 +154,14 @@ export default function ImageStudioChat() {
     if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
   };
 
+  const activeModel = isHistoryView ? undefined : models.find((m) => m.id === selectedModel);
+
   const canSend =
     !isHistoryView &&
     input.trim().length > 0 &&
     !isGenerating &&
-    selectedModel.length > 0;
+    selectedModel.length > 0 &&
+    (activeModel?.available ?? false);
 
   const handleRemoveHistory = (id: string) => {
     setHistory(removeImageHistoryEntry(id));
@@ -146,6 +174,11 @@ export default function ImageStudioChat() {
       hour: 'numeric',
       minute: '2-digit',
     }).format(new Date(ts));
+
+  const modelGroups = PROVIDER_GROUPS.map((group) => ({
+    ...group,
+    models: models.filter((m) => modelProvider(m.id) === group.key),
+  })).filter((g) => g.models.length > 0);
 
   const handleSend = async () => {
     if (!canSend) return;
@@ -214,8 +247,6 @@ export default function ImageStudioChat() {
       void handleSend();
     }
   };
-
-  const activeModel = isHistoryView ? undefined : models.find((m) => m.id === selectedModel);
 
   return (
     <div
@@ -414,12 +445,17 @@ export default function ImageStudioChat() {
                 disabled={models.length === 0}
               >
                 {models.length === 0 ? (
-                  <option value="">No models available</option>
+                  <option value="">{modelsError ? 'API unreachable' : 'No models'}</option>
                 ) : (
-                  models.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.label}
-                    </option>
+                  modelGroups.map((group) => (
+                    <optgroup key={group.key} label={group.label}>
+                      {group.models.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.label}
+                          {m.available ? '' : ' (setup needed)'}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))
                 )}
               </select>
@@ -429,8 +465,8 @@ export default function ImageStudioChat() {
             </div>
             {activeModel && (
               <span
-                className={`${styles.statusDot} ${styles.statusOk}`}
-                title="Configured"
+                className={`${styles.statusDot} ${activeModel.available ? styles.statusOk : styles.statusOff}`}
+                title={activeModel.available ? 'Ready' : 'Not configured on server'}
                 aria-hidden
               />
             )}
@@ -457,6 +493,18 @@ export default function ImageStudioChat() {
           )}
         </button>
       </div>
+
+      {!isHistoryView && modelsError && (
+        <p className={styles.setupHint} role="alert">
+          {modelsError} Check NEXT_PUBLIC_API_URL on Vercel points to your Render API.
+        </p>
+      )}
+
+      {!isHistoryView && !modelsError && activeModel && !activeModel.available && (
+        <p className={styles.setupHint}>
+          This model needs API keys on the Render backend (see backend/.env.example).
+        </p>
+      )}
 
       {!isHistoryView && (
       <div className={styles.composer}>

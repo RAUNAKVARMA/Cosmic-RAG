@@ -24,7 +24,7 @@ export default function ImageStudioPage() {
               strokeLinejoin="round"
             />
           </svg>
-          Back to Galaxy
+          <span className={styles.backText}>Back to Galaxy</span>
         </Link>
 
         <div className={styles.navCenter}>

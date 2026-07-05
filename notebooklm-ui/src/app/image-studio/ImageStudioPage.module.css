@@ -178,3 +178,64 @@
   color: #64748b;
   text-align: center;
 }
+
+@media (max-width: 640px) {
+  .nav {
+    margin: 0.5rem 0.65rem 0;
+    padding: 0.65rem 0.85rem;
+    gap: 0.5rem;
+    border-radius: 18px;
+  }
+
+  .backLink {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.65rem;
+  }
+
+  .backText {
+    display: none;
+  }
+
+  .navCenter {
+    justify-content: flex-start;
+  }
+
+  .navTitle {
+    font-size: 0.88rem;
+  }
+
+  .badge {
+    display: none;
+  }
+
+  .main {
+    padding: 1rem 0.65rem 2rem;
+  }
+
+  .shell {
+    border-radius: 18px;
+  }
+
+  .shellInner {
+    padding: 1.1rem 0.85rem 1.25rem;
+    border-radius: 17px;
+  }
+
+  .header {
+    margin-bottom: 1rem;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+  }
+
+  .footerNote {
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .backLink {
+    padding: 0.4rem 0.5rem;
+  }
+}
