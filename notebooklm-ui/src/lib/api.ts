@@ -15,6 +15,65 @@ export function getApiBaseUrl(): string {
   return '/api/rag';
 }
 
+export interface ImageModel {
+  id: string;
+  label: string;
+  vendor: string;
+  output: 'image' | 'model3d';
+  available: boolean;
+  supports_steps: boolean;
+  supports_negative_prompt: boolean;
+  supports_mode: boolean;
+  modes: string[];
+  default_steps: number | null;
+  description: string;
+}
+
+export interface GenerateImageResult {
+  image: string;
+  mime: string;
+  model_id: string;
+  seed: number;
+  output: string;
+  timestamp: string;
+}
+
+/** Fetch the catalog of image-generation models from the backend. */
+export async function fetchImageModels(): Promise<ImageModel[]> {
+  const res = await fetch(`${getApiBaseUrl()}/image-models`);
+  if (!res.ok) {
+    throw new Error(await parseApiErrorResponse(res));
+  }
+  return (await res.json()) as ImageModel[];
+}
+
+/** Request a generated image from the backend NIM pipeline. */
+export async function generateImage(params: {
+  prompt: string;
+  modelId: string;
+  seed?: number;
+  steps?: number;
+  negativePrompt?: string;
+  mode?: string;
+}): Promise<GenerateImageResult> {
+  const res = await fetch(`${getApiBaseUrl()}/generate-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: params.prompt,
+      model_id: params.modelId,
+      seed: params.seed ?? 0,
+      steps: params.steps,
+      negative_prompt: params.negativePrompt,
+      mode: params.mode,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(await parseApiErrorResponse(res));
+  }
+  return (await res.json()) as GenerateImageResult;
+}
+
 /** Readable message from a failed FastAPI / Next proxy response. */
 export async function parseApiErrorResponse(res: Response): Promise<string> {
   const text = await res.text();
