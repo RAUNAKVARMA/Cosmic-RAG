@@ -3,6 +3,21 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import DocumentUpload from './DocumentUpload';
 import FileTypeIcon from './FileTypeIcon';
+import MessageContent from './MessageContent';
+import {
+  buildConversationFromState,
+  createConversation,
+  deleteConversation,
+  getActiveId,
+  getConversation,
+  loadConversations,
+  messageFromStored,
+  saveConversation,
+  setActiveId,
+  type ChatMessage,
+  type Conversation,
+  type SourceRef,
+} from '@/lib/chatHistory';
 import { getApiBaseUrl, parseApiErrorResponse } from '@/lib/api';
 import { formatRelativeTime } from '@/lib/time';
 import styles from './ChatInterface.module.css';
@@ -35,19 +50,6 @@ function IconCosmic() {
   );
 }
 
-interface SourceRef {
-  document?: string;
-  score: number;
-  chunk_index: number;
-}
-
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  sources?: SourceRef[];
-  timestamp: Date;
-}
-
 interface DocumentListItem {
   id: string;
   name: string;
@@ -63,7 +65,7 @@ interface ModelOption {
 }
 
 const ChatInterface: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [, refreshRelativeTimes] = useReducer((n: number) => n + 1, 0);
@@ -73,9 +75,19 @@ const ChatInterface: React.FC = () => {
   const [docError, setDocError] = useState<string | null>(null);
   const [models, setModels] = useState<ModelOption[]>([]);
   const [selectedModelId, setSelectedModelId] = useState('auto');
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationCreatedAt, setConversationCreatedAt] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const restoredRef = useRef(false);
 
   const apiBase = getApiBaseUrl();
+
+  const refreshConversationList = useCallback(() => {
+    setConversations(loadConversations());
+  }, []);
 
   const refreshDocuments = useCallback(async () => {
     try {
@@ -93,6 +105,27 @@ const ChatInterface: React.FC = () => {
   }, [apiBase]);
 
   useEffect(() => {
+    const activeId = getActiveId();
+    if (activeId) {
+      const conv = getConversation(activeId);
+      if (conv) {
+        setConversationId(conv.id);
+        setConversationCreatedAt(conv.createdAt);
+        setMessages(conv.messages.map(messageFromStored));
+        setSelectedModelId(conv.modelId);
+        restoredRef.current = true;
+        refreshConversationList();
+        return;
+      }
+    }
+    const fresh = createConversation('auto');
+    setConversationId(fresh.id);
+    setConversationCreatedAt(fresh.createdAt);
+    setActiveId(fresh.id);
+    refreshConversationList();
+  }, [refreshConversationList]);
+
+  useEffect(() => {
     void refreshDocuments();
   }, [refreshDocuments]);
 
@@ -104,8 +137,10 @@ const ChatInterface: React.FC = () => {
         const data = (await res.json()) as ModelOption[];
         if (Array.isArray(data) && data.length > 0) {
           setModels(data);
-          const auto = data.find((m) => m.id === 'auto');
-          if (auto) setSelectedModelId('auto');
+          if (!restoredRef.current) {
+            const auto = data.find((m) => m.id === 'auto');
+            if (auto) setSelectedModelId('auto');
+          }
         }
       } catch {
         /* models endpoint optional until backend restarts */
@@ -123,12 +158,30 @@ const ChatInterface: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
+  useEffect(() => {
+    if (!conversationId || !conversationCreatedAt) return;
+    const timer = window.setTimeout(() => {
+      const conv = buildConversationFromState(
+        conversationId,
+        'New conversation',
+        conversationCreatedAt,
+        selectedModelId,
+        messages,
+      );
+      saveConversation(conv);
+      refreshConversationList();
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [messages, conversationId, conversationCreatedAt, selectedModelId, refreshConversationList]);
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
 
-    const userMessage: Message = { role: 'user', content: trimmed, timestamp: new Date() };
+    const priorHistory = messages.slice(-20).map(({ role, content }) => ({ role, content }));
+
+    const userMessage: ChatMessage = { role: 'user', content: trimmed, timestamp: new Date() };
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
@@ -137,7 +190,11 @@ const ChatInterface: React.FC = () => {
       const res = await fetch(`${apiBase}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed, model_id: selectedModelId }),
+        body: JSON.stringify({
+          message: trimmed,
+          model_id: selectedModelId,
+          history: priorHistory,
+        }),
       });
 
       if (!res.ok) {
@@ -213,17 +270,126 @@ const ChatInterface: React.FC = () => {
     }
   };
 
+  const startNewConversation = () => {
+    const fresh = createConversation(selectedModelId);
+    setConversationId(fresh.id);
+    setConversationCreatedAt(fresh.createdAt);
+    setActiveId(fresh.id);
+    setMessages([]);
+    setInput('');
+    refreshConversationList();
+  };
+
+  const handleNewChat = () => {
+    startNewConversation();
+    setShowHistoryPanel(false);
+  };
+
+  const handleSelectConversation = (id: string) => {
+    if (id === conversationId) {
+      setShowHistoryPanel(false);
+      return;
+    }
+    const conv = getConversation(id);
+    if (!conv) return;
+    setConversationId(conv.id);
+    setConversationCreatedAt(conv.createdAt);
+    setActiveId(conv.id);
+    setMessages(conv.messages.map(messageFromStored));
+    setSelectedModelId(conv.modelId);
+    setShowHistoryPanel(false);
+  };
+
+  const confirmDeleteConversation = () => {
+    if (!deleteTargetId) return;
+    const wasActive = deleteTargetId === conversationId;
+    deleteConversation(deleteTargetId);
+    setDeleteTargetId(null);
+    refreshConversationList();
+    if (wasActive) {
+      startNewConversation();
+    }
+  };
+
   const confirmClearHistory = () => {
     setIsClearing(true);
     window.setTimeout(() => {
-      setMessages([]);
+      if (conversationId) {
+        deleteConversation(conversationId);
+      }
+      startNewConversation();
       setIsClearing(false);
       setShowClearConfirm(false);
     }, 300);
   };
 
+  const deleteTarget = deleteTargetId
+    ? conversations.find((c) => c.id === deleteTargetId)
+    : null;
+
+  const sortedConversations = [...conversations].sort(
+    (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+  );
+
   return (
-    <div className={styles.wrap}>
+    <div className={`${styles.wrap} ${showHistoryPanel ? styles.wrapWithPanel : ''}`}>
+      {showHistoryPanel && (
+        <button
+          type="button"
+          className={styles.historyBackdrop}
+          aria-label="Close history panel"
+          onClick={() => setShowHistoryPanel(false)}
+        />
+      )}
+
+      <aside
+        className={`${styles.historyPanel} ${showHistoryPanel ? styles.historyPanelOpen : ''}`}
+        aria-hidden={!showHistoryPanel}
+      >
+        <div className={styles.historyHeader}>
+          <h2 className={styles.historyTitle}>History</h2>
+          <button
+            type="button"
+            className={styles.historyClose}
+            onClick={() => setShowHistoryPanel(false)}
+            aria-label="Close history"
+          >
+            ×
+          </button>
+        </div>
+        {sortedConversations.length === 0 ? (
+          <p className={styles.historyEmpty}>No past conversations yet</p>
+        ) : (
+          <ul className={styles.historyList}>
+            {sortedConversations.map((conv) => (
+              <li key={conv.id} className={styles.historyItem}>
+                <button
+                  type="button"
+                  className={`${styles.historySelect} ${conv.id === conversationId ? styles.historySelectActive : ''}`}
+                  onClick={() => handleSelectConversation(conv.id)}
+                >
+                  <span className={styles.historyItemTitle}>{conv.title}</span>
+                  <span className={styles.historyItemMeta}>
+                    {conv.messages.length} message{conv.messages.length !== 1 ? 's' : ''} ·{' '}
+                    <span suppressHydrationWarning>
+                      {formatRelativeTime(new Date(conv.updatedAt))}
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={styles.historyDelete}
+                  aria-label={`Delete ${conv.title}`}
+                  onClick={() => setDeleteTargetId(conv.id)}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </aside>
+
       <div className={styles.shell}>
         <div className={styles.shellInner}>
           <div className={styles.toolbar}>
@@ -248,15 +414,34 @@ const ChatInterface: React.FC = () => {
                 )}
               </select>
             </label>
-            <button
-              type="button"
-              className={styles.clearBtn}
-              disabled={messages.length === 0 || isClearing}
-              onClick={() => setShowClearConfirm(true)}
-              aria-label="Clear chat history"
-            >
-              Clear
-            </button>
+            <div className={styles.toolbarActions}>
+              <button
+                type="button"
+                className={styles.toolbarBtn}
+                onClick={() => setShowHistoryPanel((open) => !open)}
+                aria-expanded={showHistoryPanel}
+                aria-label="Conversation history"
+              >
+                History
+              </button>
+              <button
+                type="button"
+                className={styles.toolbarBtn}
+                onClick={handleNewChat}
+                aria-label="Start new chat"
+              >
+                New chat
+              </button>
+              <button
+                type="button"
+                className={styles.clearBtn}
+                disabled={messages.length === 0 || isClearing}
+                onClick={() => setShowClearConfirm(true)}
+                aria-label="Clear chat history"
+              >
+                Clear
+              </button>
+            </div>
           </div>
 
           <div
@@ -296,12 +481,7 @@ const ChatInterface: React.FC = () => {
                     </span>
                   </div>
                   <div className={styles.body}>
-                    {msg.content.split('\n').map((line, li) => (
-                      <span key={li}>
-                        {line}
-                        {li < msg.content.split('\n').length - 1 && <br />}
-                      </span>
-                    ))}
+                    <MessageContent content={msg.content} role={msg.role} />
                   </div>
                   {msg.sources && msg.sources.length > 0 && (
                     <details className={styles.sources}>
@@ -400,6 +580,30 @@ const ChatInterface: React.FC = () => {
               </button>
               <button type="button" className={styles.dialogConfirm} onClick={confirmClearHistory}>
                 Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div
+          className={styles.dialogWrap}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-dialog-title"
+        >
+          <div className={styles.dialog}>
+            <h3 id="delete-dialog-title">Delete conversation?</h3>
+            <p>
+              &ldquo;{deleteTarget.title}&rdquo; will be removed from history. This cannot be undone.
+            </p>
+            <div className={styles.dialogActions}>
+              <button type="button" className={styles.dialogCancel} onClick={() => setDeleteTargetId(null)}>
+                Cancel
+              </button>
+              <button type="button" className={styles.dialogConfirm} onClick={confirmDeleteConversation}>
+                Delete
               </button>
             </div>
           </div>

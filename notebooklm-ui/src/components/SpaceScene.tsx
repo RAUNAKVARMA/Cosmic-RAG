@@ -3,12 +3,42 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 interface SpaceSceneProps {
   onBlackHoleClick?: () => void;
+  /** When false, the scene renders as a fixed, non-interactive backdrop (no pointer events, no click). */
+  interactive?: boolean;
+  /** z-index applied to the canvas container. */
+  zIndex?: number;
 }
 
 function hsl(h: number, s: number, l: number, c: THREE.Color): void { c.setHSL(h, s, l); }
+
+/**
+ * Soft radial-gradient sprite used as the point texture so particles render as
+ * smooth round dots instead of hard squares (the default PointsMaterial look).
+ */
+function makeSpriteTexture(): THREE.Texture {
+  const s = 64;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = s;
+  const ctx = cv.getContext('2d')!;
+  const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.25, 'rgba(255,255,255,0.85)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, s, s);
+  const t = new THREE.Texture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.needsUpdate = true;
+  return t;
+}
 
 function spiralXZ(off: number, t: number, tw: number, sc: number): [number, number] {
   const a = off + t * tw + (Math.random() - 0.5) * sc;
@@ -18,7 +48,7 @@ function spiralXZ(off: number, t: number, tw: number, sc: number): [number, numb
 function makeCloud(
   cx: number, cy: number, cz: number, radius: number, n: number,
   hue: number, sat: number, lum: number, flatY: number,
-  size: number, opacity: number, scene: THREE.Scene,
+  size: number, opacity: number, scene: THREE.Scene, sprite: THREE.Texture,
 ): THREE.Points {
   const g = new THREE.BufferGeometry();
   const p = new Float32Array(n * 3), co = new Float32Array(n * 3);
@@ -39,12 +69,13 @@ function makeCloud(
   const pts = new THREE.Points(g, new THREE.PointsMaterial({
     size, vertexColors: true, sizeAttenuation: true, transparent: true,
     opacity, blending: THREE.AdditiveBlending, depthWrite: false,
+    map: sprite, alphaMap: sprite,
   }));
   scene.add(pts);
   return pts;
 }
 
-const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
+const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick, interactive = true, zIndex = 0 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const clickRef = useRef(onBlackHoleClick);
   useEffect(() => { clickRef.current = onBlackHoleClick; }, [onBlackHoleClick]);
@@ -52,6 +83,10 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
+    const reducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const W = mount.clientWidth, H = Math.max(mount.clientHeight, 1);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -68,20 +103,36 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
     camera.position.set(0, 22, 32);
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
+    controls.enableDamping = interactive && !reducedMotion;
     controls.dampingFactor = 0.06;
     controls.minDistance = 3;
     controls.maxDistance = 280;
     controls.maxPolarAngle = Math.PI * 0.88;
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.12;
+    controls.autoRotate = !reducedMotion;
+    controls.autoRotateSpeed = interactive ? 0.12 : 0.09;
     controls.target.set(0, 0, 0);
     controls.enablePan = false;
+    controls.enabled = interactive;
 
     const clock = new THREE.Clock();
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     const c = new THREE.Color();
+    const sprite = makeSpriteTexture();
+
+    /* ── Cinematic bloom post-processing ─────────────────────────── */
+    const composer = new EffectComposer(renderer);
+    composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    composer.setSize(W, H);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloom = new UnrealBloomPass(
+      new THREE.Vector2(W, H),
+      interactive ? 0.6 : 0.48, // strength
+      0.5, // radius
+      0.2, // threshold
+    );
+    composer.addPass(bloom);
+    composer.addPass(new OutputPass());
 
     /* ── 1. Background stars ─────────────────────────────────────── */
     const BG = 10000;
@@ -105,8 +156,9 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
     bgG.setAttribute('position', new THREE.BufferAttribute(bgP, 3));
     bgG.setAttribute('color', new THREE.BufferAttribute(bgC, 3));
     scene.add(new THREE.Points(bgG, new THREE.PointsMaterial({
-      size: 0.18, vertexColors: true, sizeAttenuation: true,
+      size: 0.4, vertexColors: true, sizeAttenuation: true,
       transparent: true, opacity: 0.85, depthWrite: false,
+      map: sprite, alphaMap: sprite, blending: THREE.AdditiveBlending,
     })));
 
     /* ── 2. Distant galaxies ─────────────────────────────────────── */
@@ -136,8 +188,9 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
       geo.setAttribute('position', new THREE.BufferAttribute(ps, 3));
       geo.setAttribute('color', new THREE.BufferAttribute(cl, 3));
       const pts = new THREE.Points(geo, new THREE.PointsMaterial({
-        size: 0.22, vertexColors: true, sizeAttenuation: true,
+        size: 0.5, vertexColors: true, sizeAttenuation: true,
         transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false,
+        map: sprite, alphaMap: sprite,
       }));
       const d = 75 + Math.random() * 170, ang = Math.random() * Math.PI * 2, el = (Math.random() - 0.5) * 90;
       pts.position.set(Math.cos(ang) * d, el, Math.sin(ang) * d);
@@ -168,8 +221,9 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
       geo.setAttribute('position', new THREE.BufferAttribute(ps, 3));
       geo.setAttribute('color', new THREE.BufferAttribute(cl, 3));
       collGroup.add(new THREE.Points(geo, new THREE.PointsMaterial({
-        size: 0.25, vertexColors: true, sizeAttenuation: true,
+        size: 0.55, vertexColors: true, sizeAttenuation: true,
         transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false,
+        map: sprite, alphaMap: sprite,
       })));
     }
     const tidalN = 300, tidalGeo = new THREE.BufferGeometry();
@@ -185,8 +239,9 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
     tidalGeo.setAttribute('position', new THREE.BufferAttribute(tidalP, 3));
     tidalGeo.setAttribute('color', new THREE.BufferAttribute(tidalC, 3));
     collGroup.add(new THREE.Points(tidalGeo, new THREE.PointsMaterial({
-      size: 0.2, vertexColors: true, sizeAttenuation: true,
+      size: 0.45, vertexColors: true, sizeAttenuation: true,
       transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false,
+      map: sprite, alphaMap: sprite,
     })));
     scene.add(collGroup);
 
@@ -210,7 +265,8 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
       geo.setAttribute('color', new THREE.BufferAttribute(cl, 3));
       boomGroup.add(new THREE.Points(geo, new THREE.PointsMaterial({
         size: 1.6, vertexColors: true, sizeAttenuation: true,
-        transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false,
+        transparent: true, opacity: 0.09, blending: THREE.AdditiveBlending, depthWrite: false,
+        map: sprite, alphaMap: sprite,
       })));
     }
     const boomCore = new THREE.Mesh(
@@ -243,7 +299,8 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
     veilGeo.setAttribute('color', new THREE.BufferAttribute(vC, 3));
     veilGroup.add(new THREE.Points(veilGeo, new THREE.PointsMaterial({
       size: 1.2, vertexColors: true, sizeAttenuation: true,
-      transparent: true, opacity: 0.065, blending: THREE.AdditiveBlending, depthWrite: false,
+      transparent: true, opacity: 0.085, blending: THREE.AdditiveBlending, depthWrite: false,
+      map: sprite, alphaMap: sprite,
     })));
     scene.add(veilGroup);
 
@@ -267,7 +324,8 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
     pnGeo.setAttribute('color', new THREE.BufferAttribute(pnC, 3));
     pnGroup.add(new THREE.Points(pnGeo, new THREE.PointsMaterial({
       size: 1.0, vertexColors: true, sizeAttenuation: true,
-      transparent: true, opacity: 0.09, blending: THREE.AdditiveBlending, depthWrite: false,
+      transparent: true, opacity: 0.11, blending: THREE.AdditiveBlending, depthWrite: false,
+      map: sprite, alphaMap: sprite,
     })));
     const whiteDwarf = new THREE.Mesh(
       new THREE.SphereGeometry(0.2, 16, 16),
@@ -297,12 +355,12 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
       sn1aGroup.add(gm);
       sn1aGlows.push(gm);
     }
-    makeCloud(-45, -8, 65, 8, 400, 0.08, 0.7, 0.45, 0.8, 2.0, 0.04, scene);
+    makeCloud(-45, -8, 65, 8, 400, 0.08, 0.7, 0.45, 0.8, 2.0, 0.05, scene, sprite);
     scene.add(sn1aGroup);
 
     /* ── 8. Supernova remnant (Crab-like) ────────────────────────── */
-    makeCloud(40, 25, -40, 12, 900, 0.0, 0.7, 0.35, 0.7, 2.5, 0.05, scene);
-    makeCloud(40, 25, -40, 8, 500, 0.55, 0.6, 0.45, 0.7, 1.8, 0.04, scene);
+    makeCloud(40, 25, -40, 12, 900, 0.0, 0.7, 0.35, 0.7, 2.5, 0.06, scene, sprite);
+    makeCloud(40, 25, -40, 8, 500, 0.55, 0.6, 0.45, 0.7, 1.8, 0.05, scene, sprite);
     const crabPulsar = new THREE.Mesh(
       new THREE.SphereGeometry(0.15, 12, 12),
       new THREE.MeshBasicMaterial({ color: 0xccffff, transparent: true, opacity: 0.9 })
@@ -311,9 +369,9 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
     scene.add(crabPulsar);
 
     /* ── 9. Emission nebulae (Orion-like, Carina-like) ───────────── */
-    makeCloud(55, 5, -25, 15, 900, 0.95, 0.7, 0.35, 0.6, 3.2, 0.055, scene);
-    makeCloud(-50, -15, 35, 18, 1100, 0.93, 0.65, 0.32, 0.55, 3.8, 0.045, scene);
-    makeCloud(-25, 28, -65, 12, 600, 0.6, 0.5, 0.4, 0.65, 2.8, 0.05, scene);
+    makeCloud(55, 5, -25, 15, 900, 0.95, 0.7, 0.35, 0.6, 3.2, 0.065, scene, sprite);
+    makeCloud(-50, -15, 35, 18, 1100, 0.93, 0.65, 0.32, 0.55, 3.8, 0.055, scene, sprite);
+    makeCloud(-25, 28, -65, 12, 600, 0.6, 0.5, 0.4, 0.65, 2.8, 0.06, scene, sprite);
 
     /* ── 10. Pulsars with beams ──────────────────────────────────── */
     const pulsarGroup = new THREE.Group();
@@ -391,8 +449,9 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
     galaxyGeo.setAttribute('position', new THREE.BufferAttribute(gP, 3));
     galaxyGeo.setAttribute('color', new THREE.BufferAttribute(gC, 3));
     const galaxyMat = new THREE.PointsMaterial({
-      size: 0.11, vertexColors: true, sizeAttenuation: true,
+      size: 0.28, vertexColors: true, sizeAttenuation: true,
       transparent: true, opacity: 0.92, depthWrite: false, blending: THREE.AdditiveBlending,
+      map: sprite, alphaMap: sprite,
     });
     const galaxy = new THREE.Points(galaxyGeo, galaxyMat);
     scene.add(galaxy);
@@ -417,6 +476,7 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
     scene.add(new THREE.Points(dustG, new THREE.PointsMaterial({
       size: 1.4, vertexColors: true, sizeAttenuation: true,
       transparent: true, opacity: 0.09, blending: THREE.AdditiveBlending, depthWrite: false,
+      map: sprite, alphaMap: sprite,
     })));
 
     /* ── 13. Black hole ──────────────────────────────────────────── */
@@ -447,25 +507,23 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
     }));
     accDisk.rotation.x = -Math.PI / 2;
     bhGroup.add(accDisk);
-    const glowLayers: THREE.Mesh[] = [];
-    const glowConf: [number, number, number, number][] = [
-      [0.8, 4.5, 0x00e5ff, 0.2], [0.6, 5.2, 0xff7700, 0.09], [0.4, 6.0, 0xff00aa, 0.04],
+    // Soft, camera-facing glow halo (smooth gravitational-lensing bloom) instead of hard rings.
+    const glowLayers: THREE.Sprite[] = [];
+    const glowConf: [number, number, number][] = [
+      [9, 0x00e5ff, 0.32], [12.5, 0xff7700, 0.17], [16, 0xff00aa, 0.09], [21, 0x7c3aed, 0.05],
     ];
-    for (const [inn, out, col, op] of glowConf) {
-      const ring = new THREE.Mesh(
-        new THREE.RingGeometry(inn, out, 80),
-        new THREE.MeshBasicMaterial({
-          color: col, transparent: true, opacity: op,
-          side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false,
-        })
-      );
-      ring.rotation.x = -Math.PI / 2;
-      bhGroup.add(ring); glowLayers.push(ring);
+    for (const [scl, col, op] of glowConf) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: sprite, color: col, transparent: true, opacity: op,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      }));
+      sp.scale.setScalar(scl);
+      bhGroup.add(sp); glowLayers.push(sp);
     }
     const photonRing = new THREE.Mesh(
-      new THREE.TorusGeometry(0.78, 0.035, 16, 128),
+      new THREE.TorusGeometry(0.8, 0.05, 24, 160),
       new THREE.MeshBasicMaterial({
-        color: 0xffffff, transparent: true, opacity: 0.65,
+        color: 0xfff2d0, transparent: true, opacity: 0.95,
         blending: THREE.AdditiveBlending, depthWrite: false,
       })
     );
@@ -529,12 +587,15 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
     const clickTargets: THREE.Object3D[] = [eventHorizon, accDisk, photonRing, ...glowLayers];
 
     /* ── Interaction ─────────────────────────────────────────────── */
-    let pointerDownPos = new THREE.Vector2();
+    const pointerDownPos = new THREE.Vector2();
     let hovered = false;
+    const parallax = { x: 0, y: 0 };
     const updatePointer = (e: PointerEvent) => {
       const r = renderer.domElement.getBoundingClientRect();
       pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
       pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+      parallax.x = pointer.x;
+      parallax.y = pointer.y;
     };
     const onPointerMove = (e: PointerEvent) => {
       updatePointer(e);
@@ -549,15 +610,19 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
       raycaster.setFromCamera(pointer, camera);
       if (raycaster.intersectObjects(clickTargets, false).length > 0 && clickRef.current) clickRef.current();
     };
-    renderer.domElement.style.cursor = 'grab';
-    renderer.domElement.addEventListener('pointermove', onPointerMove);
-    renderer.domElement.addEventListener('pointerdown', onPointerDown);
-    renderer.domElement.addEventListener('pointerup', onPointerUp);
+    if (interactive) {
+      renderer.domElement.style.cursor = 'grab';
+      renderer.domElement.addEventListener('pointermove', onPointerMove);
+      renderer.domElement.addEventListener('pointerdown', onPointerDown);
+      renderer.domElement.addEventListener('pointerup', onPointerUp);
+    }
 
     const onResize = () => {
       if (!mountRef.current) return;
       const nw = mountRef.current.clientWidth, nh = Math.max(mountRef.current.clientHeight, 1);
-      camera.aspect = nw / nh; camera.updateProjectionMatrix(); renderer.setSize(nw, nh);
+      camera.aspect = nw / nh; camera.updateProjectionMatrix();
+      renderer.setSize(nw, nh);
+      composer.setSize(nw, nh);
     };
     window.addEventListener('resize', onResize);
 
@@ -568,15 +633,21 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
       const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
       controls.update();
 
+      if (interactive) {
+        const k = Math.min(dt * 3, 1);
+        scene.rotation.y += (parallax.x * 0.05 - scene.rotation.y) * k;
+        scene.rotation.x += (-parallax.y * 0.03 - scene.rotation.x) * k;
+      }
+
       galaxy.rotation.y += 0.01 * dt;
       accDisk.rotation.z += 0.55 * dt;
       photonRing.rotation.z -= 1.0 * dt;
 
       const pulse = 0.85 + Math.sin(t * 1.6) * 0.15;
       glowLayers.forEach((g, i) => {
-        (g.material as THREE.MeshBasicMaterial).opacity = glowConf[i][3] * pulse + Math.sin(t * (1.1 + i * 0.35)) * 0.015;
+        (g.material as THREE.SpriteMaterial).opacity = glowConf[i][2] * pulse + Math.sin(t * (1.1 + i * 0.35)) * 0.015;
       });
-      (photonRing.material as THREE.MeshBasicMaterial).opacity = 0.55 + Math.sin(t * 2.5) * 0.15;
+      (photonRing.material as THREE.MeshBasicMaterial).opacity = 0.8 + Math.sin(t * 2.5) * 0.15;
       const jOp = 0.04 + Math.sin(t * 1.2) * 0.03;
       (jetUp.material as THREE.MeshBasicMaterial).opacity = jOp;
       (jetDown.material as THREE.MeshBasicMaterial).opacity = jOp;
@@ -615,17 +686,28 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
       sun.rotation.y += 0.3 * dt;
       (sunGlow.material as THREE.MeshBasicMaterial).opacity = 0.12 + Math.sin(t * 2) * 0.04;
 
-      renderer.render(scene, camera);
+      composer.render();
     };
-    animate();
+
+    const renderFrame = () => composer.render();
+    if (reducedMotion) {
+      controls.update();
+      renderFrame();
+      if (interactive) controls.addEventListener('change', renderFrame);
+    } else {
+      animate();
+    }
 
     return () => {
       cancelAnimationFrame(raf);
+      controls.removeEventListener('change', renderFrame);
       controls.dispose();
       window.removeEventListener('resize', onResize);
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
+      composer.dispose();
+      sprite.dispose();
       renderer.dispose();
       scene.traverse((obj) => {
         if (obj instanceof THREE.Mesh || obj instanceof THREE.Points) {
@@ -636,9 +718,22 @@ const SpaceScene: React.FC<SpaceSceneProps> = ({ onBlackHoleClick }) => {
       });
       if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
     };
-  }, []);
+  }, [interactive, zIndex]);
 
-  return <div ref={mountRef} style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh' }} />;
+  return (
+    <div
+      ref={mountRef}
+      aria-hidden={!interactive}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex,
+        pointerEvents: interactive ? 'auto' : 'none',
+      }}
+    />
+  );
 };
 
 export default SpaceScene;

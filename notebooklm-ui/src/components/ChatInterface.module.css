@@ -3,6 +3,220 @@
   max-width: 760px;
   margin: 1.75rem auto 2.5rem;
   padding: 0 1.15rem;
+  position: relative;
+}
+
+.wrapWithPanel {
+  max-width: 1040px;
+}
+
+.historyBackdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 28;
+  background: rgba(0, 0, 0, 0.55);
+  border: none;
+  cursor: pointer;
+}
+
+.historyPanel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 30;
+  width: 280px;
+  max-height: calc(100vh - 8rem);
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  background: linear-gradient(165deg, rgba(12, 14, 32, 0.92) 0%, rgba(4, 6, 18, 0.95) 100%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  transform: translateX(calc(-100% - 1rem));
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.28s ease, opacity 0.28s ease;
+}
+
+.historyPanelOpen {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem 0.65rem;
+  border-bottom: 1px solid rgba(103, 232, 249, 0.12);
+}
+
+.historyTitle {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(165, 243, 252, 0.75);
+}
+
+.historyClose {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.15rem 0.35rem;
+  border-radius: 6px;
+}
+
+.historyClose:hover {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.historyEmpty {
+  margin: 0;
+  padding: 1.25rem 1rem;
+  font-size: 0.85rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.historyList {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0.45rem 0.75rem;
+  overflow-y: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, 0.25) transparent;
+}
+
+.historyItem {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.historySelect {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.historySelect:hover {
+  background: rgba(0, 229, 255, 0.06);
+  border-color: rgba(0, 229, 255, 0.15);
+}
+
+.historySelectActive {
+  background: rgba(0, 229, 255, 0.1);
+  border-color: rgba(0, 229, 255, 0.35);
+}
+
+.historyItemTitle {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.historyItemMeta {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
+  color: #64748b;
+}
+
+.historyDelete {
+  flex-shrink: 0;
+  width: 2rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #64748b;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.historyDelete:hover {
+  color: #fda4af;
+  background: rgba(244, 63, 94, 0.1);
+  border-color: rgba(244, 63, 94, 0.25);
+}
+
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.toolbarBtn {
+  background: rgba(103, 232, 249, 0.06);
+  color: #a5f3fc;
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.toolbarBtn:hover {
+  background: rgba(103, 232, 249, 0.12);
+  border-color: rgba(103, 232, 249, 0.45);
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.1);
+}
+
+@media (min-width: 769px) {
+  .wrapWithPanel .shell {
+    margin-left: 292px;
+  }
+}
+
+@media (max-width: 768px) {
+  .wrapWithPanel {
+    max-width: 760px;
+  }
+
+  .historyBackdrop {
+    display: block;
+  }
+
+  .historyPanel {
+    position: fixed;
+    top: 5rem;
+    left: 0.75rem;
+    right: 0.75rem;
+    width: auto;
+    max-height: min(70vh, 520px);
+    transform: translateY(-12px);
+  }
+
+  .historyPanelOpen {
+    transform: translateY(0);
+  }
 }
 
 .shell {

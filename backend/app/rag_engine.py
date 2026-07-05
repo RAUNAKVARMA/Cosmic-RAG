@@ -58,7 +58,12 @@ class RAGEngine:
             return np.array(list(self.embedding_model.embed(chunks)))
         return _stable_embed(chunks, self._embedding_dim)
 
-    def answer_query(self, query: str, model_id: Optional[str] = None) -> Tuple[str, list]:
+    def answer_query(
+        self,
+        query: str,
+        model_id: Optional[str] = None,
+        history: Optional[List[dict]] = None,
+    ) -> Tuple[str, list]:
         if self.embedding_model is not None:
             query_vec = np.array(list(self.embedding_model.embed([query])))
         else:
@@ -66,7 +71,7 @@ class RAGEngine:
         results = self.vector_store.search(query_vec, top_k=5)
         context = "\n".join([r["text"] for r in results])
         sources = [r["metadata"] for r in results]
-        answer = generate_answer(context, query, model_id=model_id)
+        answer = generate_answer(context, query, model_id=model_id, history=history)
         if not answer.strip():
             answer = f"[Template] Answer for: {query}\nContext: {context[:200]}..."
         return answer, sources

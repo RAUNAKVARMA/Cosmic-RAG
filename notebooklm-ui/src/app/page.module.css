@@ -1,0 +1,91 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 1.25rem 3rem;
+  pointer-events: none;
+}
+
+.hero {
+  pointer-events: auto;
+  max-width: 22rem;
+  width: 100%;
+  text-align: center;
+  padding: 1.15rem 1.25rem 1.3rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
+  animation: heroRise 0.8s var(--ease-out) both;
+}
+
+@keyframes heroRise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.title {
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: linear-gradient(105deg, #a5f3fc 0%, #c4b5fd 45%, #f9a8d4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 44px;
+  padding: 0.65rem 1.3rem;
+  border: 1px solid var(--glass-border-strong);
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #ecfeff;
+  cursor: pointer;
+  background: linear-gradient(
+    135deg,
+    rgba(34, 211, 238, 0.35) 0%,
+    rgba(124, 58, 237, 0.4) 50%,
+    rgba(236, 72, 153, 0.35) 100%
+  );
+  box-shadow: 0 8px 32px rgba(34, 211, 238, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out), filter 0.2s var(--ease-out);
+}
+
+.cta:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+  box-shadow: 0 12px 40px rgba(167, 139, 250, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.ctaHint {
+  margin: 0.7rem 0 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: rgba(226, 232, 240, 0.6);
+}

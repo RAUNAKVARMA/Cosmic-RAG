@@ -1,0 +1,72 @@
+model_list:
+  - model_name: ollama-llama3.2-1b
+    litellm_params:
+      model: ollama/llama3.2:1b
+      api_base: os.environ/OLLAMA_BASE_URL
+
+  - model_name: llama-4-maverick
+    litellm_params:
+      model: nvidia_nim/meta/llama-4-maverick-17b-128e-instruct
+      api_key: os.environ/NVIDIA_API_KEY
+      api_base: https://integrate.api.nvidia.com/v1
+      max_tokens: 512
+      temperature: 1.0
+      top_p: 1.0
+      frequency_penalty: 0.0
+      presence_penalty: 0.0
+
+  - model_name: mistral-medium-3.5
+    litellm_params:
+      model: nvidia_nim/mistralai/mistral-medium-3.5-128b
+      api_key: os.environ/NVIDIA_API_KEY
+      api_base: https://integrate.api.nvidia.com/v1
+      temperature: 0.7
+      top_p: 1.0
+
+  - model_name: qwen3.5-122b
+    litellm_params:
+      model: nvidia_nim/qwen/qwen3.5-122b-a10b
+      api_key: os.environ/NVIDIA_API_KEY
+      api_base: https://integrate.api.nvidia.com/v1
+      max_tokens: 16384
+      temperature: 0.6
+      top_p: 0.95
+
+  - model_name: nemotron-ultra
+    litellm_params:
+      model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
+      api_key: os.environ/NVIDIA_API_KEY
+      api_base: https://integrate.api.nvidia.com/v1
+
+  - model_name: deepseek-v4-pro
+    litellm_params:
+      model: nvidia_nim/deepseek-ai/deepseek-v4-pro
+      api_key: os.environ/NVIDIA_API_KEY
+      api_base: https://integrate.api.nvidia.com/v1
+      temperature: 1
+      top_p: 0.95
+      max_tokens: 16384
+      extra_body:
+        chat_template_kwargs:
+          thinking: false
+
+  - model_name: diffusiongemma-26b
+    litellm_params:
+      model: nvidia_nim/google/diffusiongemma-26b-a4b-it
+      api_key: os.environ/NVIDIA_API_KEY
+      api_base: https://integrate.api.nvidia.com/v1
+      temperature: 1
+      top_p: 0.95
+      max_tokens: 4096
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: true
+
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 1
+  timeout: 300
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false

@@ -1,15 +1,39 @@
 @import "tailwindcss";
 
 :root {
-  --background: #000005;
+  --background: #020203;
   --foreground: #ededed;
+
+  /* Cosmic palette */
+  --cosmic-cyan: #00e5ff;
+  --cosmic-purple: #7c3aed;
+  --cosmic-indigo: #6366f1;
+  --cosmic-pink: #ec4899;
+
+  /* Glassmorphism tokens (from ui-ux-pro-max) */
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-bg-strong: rgba(255, 255, 255, 0.1);
+  --glass-blur: 28px;
+  --glass-saturate: 165%;
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-border-strong: rgba(255, 255, 255, 0.22);
+  --glass-radius: 24px;
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-highlight: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(255, 255, 255, 0.02) 40%,
+    rgba(255, 255, 255, 0) 100%
+  );
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
 }
 
 *,
@@ -25,8 +49,8 @@ body {
   width: 100%;
   height: 100%;
   overflow-x: hidden;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: #000005;
+  font-family: var(--font-sans), 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--background);
   color: #fff;
   -webkit-font-smoothing: antialiased;
 }
@@ -36,4 +60,29 @@ main {
   flex-direction: column;
   align-items: center;
   min-height: 100vh;
+}
+
+/* Reusable frosted-glass surface */
+.glass-surface {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
+}
+
+:focus-visible {
+  outline: 3px solid rgba(0, 229, 255, 0.6);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

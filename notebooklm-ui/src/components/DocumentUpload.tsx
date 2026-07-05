@@ -1,14 +1,37 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import styles from './DocumentUpload.module.css';
 
 interface DocumentUploadProps {
   onFileUpload: (files: FileList) => void;
 }
 
+function UploadIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 15V4m0 0L8 8m4-4l4 4"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4 15v2.5A2.5 2.5 0 006.5 20h11a2.5 2.5 0 002.5-2.5V15"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export default function DocumentUpload({ onFileUpload }: DocumentUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const openPicker = () => fileInputRef.current?.click();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -41,15 +64,17 @@ export default function DocumentUpload({ onFileUpload }: DocumentUploadProps) {
       onDragOver={handleDrag}
       onDragLeave={handleDrag}
       onDrop={handleDrop}
-      style={{
-        border: dragActive ? '2px solid #1a237e' : '2px dashed #aaa',
-        padding: 24,
-        borderRadius: 8,
-        background: '#222',
-        color: '#fff',
-        margin: '2rem auto',
-        maxWidth: 600,
+      onClick={openPicker}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openPicker();
+        }
       }}
+      role="button"
+      tabIndex={0}
+      aria-label="Upload documents: drag and drop or press to browse"
+      className={`${styles.dropzone} ${dragActive ? styles.dropzoneActive : ''}`}
     >
       <input
         ref={fileInputRef}
@@ -60,26 +85,13 @@ export default function DocumentUpload({ onFileUpload }: DocumentUploadProps) {
         onChange={handleFileChange}
         aria-label="Choose documents to upload"
       />
-      <div style={{ textAlign: 'center' }}>
-        <p>
-          Drag and drop PDF, DOCX, TXT, MD, or CSV here, or{' '}
-          <span
-            style={{ color: '#00e5ff', cursor: 'pointer' }}
-            onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                fileInputRef.current?.click();
-              }
-            }}
-            role="button"
-            tabIndex={0}
-          >
-            browse
-          </span>{' '}
-          to upload.
-        </p>
-      </div>
+      <span className={styles.icon} aria-hidden>
+        <UploadIcon />
+      </span>
+      <p className={styles.text}>
+        Drag and drop documents here, or <span className={styles.browse}>browse</span> to upload.
+        <span className={styles.hint}>PDF, DOCX, TXT, MD, or CSV · up to 10 MB each</span>
+      </p>
     </div>
   );
 }

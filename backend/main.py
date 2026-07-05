@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import os
 import uuid
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pathlib import Path
 
@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 # Always load .env next to this file (works even if uvicorn cwd is elsewhere).
-load_dotenv(Path(__file__).resolve().parent / ".env")
+load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
 from app.document_parser import extract_text_from_bytes
 from app.knowledge_graph import KnowledgeGraphBuilder
@@ -49,9 +49,15 @@ knowledge_graph = KnowledgeGraphBuilder()
 rag_engine = RAGEngine(vector_store, knowledge_graph)
 
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., min_length=1)
+
+
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1)
     model_id: Optional[str] = None
+    history: Optional[List[ChatTurn]] = None
 
 
 class ModelInfo(BaseModel):
@@ -84,7 +90,16 @@ def get_models() -> List[ModelInfo]:
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
     try:
-        answer, sources = rag_engine.answer_query(request.message, model_id=request.model_id)
+        history_payload = (
+            [{"role": t.role, "content": t.content} for t in request.history]
+            if request.history
+            else None
+        )
+        answer, sources = rag_engine.answer_query(
+            request.message,
+            model_id=request.model_id,
+            history=history_payload,
+        )
         return ChatResponse(answer=answer, sources=sources, timestamp=_utc_iso())
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Unable to complete chat request.") from exc

@@ -1,0 +1,167 @@
+.plain {
+  color: inherit;
+  line-height: 1.65;
+  word-break: break-word;
+}
+
+.markdown {
+  color: #e2e8f0;
+  line-height: 1.65;
+  word-break: break-word;
+  font-size: 0.94rem;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown p {
+  margin: 0.65rem 0;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  font-family: system-ui, sans-serif;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 1.1rem 0 0.55rem;
+  color: #f0f9ff;
+}
+
+.markdown h1 {
+  font-size: 1.2rem;
+  letter-spacing: 0.01em;
+}
+
+.markdown h2 {
+  font-size: 1.05rem;
+  color: #e0f2fe;
+}
+
+.markdown h3 {
+  font-size: 0.98rem;
+  color: #bae6fd;
+}
+
+.markdown h4 {
+  font-size: 0.92rem;
+  color: #7dd3fc;
+}
+
+.markdown strong {
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.markdown em {
+  color: #cbd5e1;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0.55rem 0 0.75rem;
+  padding-left: 1.35rem;
+}
+
+.markdown li {
+  margin: 0.35rem 0;
+  padding-left: 0.15rem;
+}
+
+.markdown li::marker {
+  color: #67e8f9;
+}
+
+.markdown ul li {
+  list-style-type: disc;
+}
+
+.markdown ol li {
+  list-style-type: decimal;
+}
+
+.markdown li > p {
+  margin: 0.25rem 0;
+}
+
+.markdown blockquote {
+  margin: 0.75rem 0;
+  padding: 0.55rem 0.85rem;
+  border-left: 3px solid rgba(103, 232, 249, 0.45);
+  border-radius: 0 10px 10px 0;
+  background: rgba(0, 229, 255, 0.05);
+  color: #cbd5e1;
+}
+
+.markdown code {
+  font-family: ui-monospace, 'Cascadia Code', 'Segoe UI Mono', monospace;
+  font-size: 0.86em;
+  padding: 0.12rem 0.38rem;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(103, 232, 249, 0.15);
+  color: #a5f3fc;
+}
+
+.markdown pre {
+  margin: 0.75rem 0;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  overflow-x: auto;
+  background: rgba(2, 6, 23, 0.75);
+  border: 1px solid rgba(103, 232, 249, 0.12);
+}
+
+.markdown pre code {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 0.84rem;
+}
+
+.markdown a {
+  color: #67e8f9;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown a:hover {
+  color: #a5f3fc;
+}
+
+.markdown hr {
+  margin: 1rem 0;
+  border: none;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.markdown table {
+  width: 100%;
+  margin: 0.75rem 0;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.markdown th,
+.markdown td {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  text-align: left;
+}
+
+.markdown th {
+  background: rgba(0, 229, 255, 0.06);
+  color: #bae6fd;
+  font-weight: 600;
+}
+
+.markdown tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}

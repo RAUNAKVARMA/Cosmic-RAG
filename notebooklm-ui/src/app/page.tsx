@@ -2,41 +2,38 @@
 
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+import styles from './page.module.css';
 
 const SpaceScene = dynamic(() => import('@/components/SpaceScene'), { ssr: false });
 
 export default function Home() {
   const router = useRouter();
+  const enter = () => router.push('/chat');
 
   return (
     <>
-      <SpaceScene onBlackHoleClick={() => router.push('/chat')} />
-      <div
-        style={{
-          position: 'fixed',
-          bottom: '2.5rem',
-          left: 0,
-          right: 0,
-          display: 'flex',
-          justifyContent: 'center',
-          pointerEvents: 'none',
-          zIndex: 10,
-        }}
-      >
-        <p
-          style={{
-            background: 'rgba(0,0,0,0.45)',
-            backdropFilter: 'blur(8px)',
-            padding: '0.6rem 1.4rem',
-            borderRadius: '999px',
-            border: '1px solid rgba(0,229,255,0.2)',
-            color: 'rgba(255,255,255,0.7)',
-            fontSize: '0.9rem',
-            letterSpacing: '0.02em',
-          }}
-        >
-          Click the black hole to enter the knowledge portal
-        </p>
+      <SpaceScene onBlackHoleClick={enter} />
+      <div className={styles.overlay}>
+        <div className={styles.hero}>
+          <h1 className={styles.title}>Cosmic RAG</h1>
+          <p className={styles.subtitle}>
+            A retrieval-augmented knowledge assistant. Upload your documents and get grounded,
+            low-latency answers from across your corpus.
+          </p>
+          <button type="button" className={styles.cta} onClick={enter}>
+            Enter the knowledge portal
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M5 12h14m0 0l-5-5m5 5l-5 5"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <p className={styles.ctaHint}>Or click the black hole to dive in</p>
+        </div>
       </div>
     </>
   );

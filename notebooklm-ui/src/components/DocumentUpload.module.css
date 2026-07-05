@@ -1,0 +1,62 @@
+.dropzone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.15rem 1.25rem;
+  border-radius: 18px;
+  border: 1.5px dashed rgba(0, 229, 255, 0.35);
+  background: rgba(6, 10, 24, 0.4);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease-out), background 0.2s var(--ease-out),
+    box-shadow 0.2s var(--ease-out), transform 0.2s var(--ease-out);
+}
+
+.dropzone:hover {
+  border-color: rgba(0, 229, 255, 0.55);
+  background: rgba(8, 14, 30, 0.5);
+}
+
+.dropzoneActive {
+  border-color: rgba(0, 229, 255, 0.9);
+  border-style: solid;
+  background: rgba(0, 229, 255, 0.1);
+  box-shadow: 0 0 32px rgba(0, 229, 255, 0.22), inset 0 0 24px rgba(0, 229, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.icon {
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.2) 0%, rgba(124, 58, 237, 0.25) 100%);
+  border: 1px solid var(--glass-border);
+  color: #a5f3fc;
+}
+
+.text {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+.hint {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
+.browse {
+  color: #67e8f9;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
