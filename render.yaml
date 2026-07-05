@@ -1,4 +1,26 @@
+# Cosmic RAG on Render — two services:
+#   cosmic-rag-ollama  → hosts llama3.2:1b (needs Standard 2GB+ RAM)
+#   cosmic-rag-api     → FastAPI + RAG (free tier OK)
+#
+# After deploy: set NVIDIA_API_KEY on cosmic-rag-api in the Render dashboard.
+
 services:
+  - type: web
+    name: cosmic-rag-ollama
+    runtime: docker
+    region: oregon
+    plan: standard
+    rootDir: backend/ollama
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/tags
+    envVars:
+      - key: OLLAMA_MODEL
+        value: llama3.2:1b
+    disk:
+      name: ollama-models
+      mountPath: /root/.ollama
+      sizeGB: 1
+
   - type: web
     name: cosmic-rag-api
     runtime: docker
@@ -7,6 +29,13 @@ services:
     rootDir: backend
     dockerfilePath: ./Dockerfile
     envVars:
-      - key: GROQ_API_KEY
+      - key: NVIDIA_API_KEY
         sync: false
+      - key: LLM_DEFAULT_MODEL
+        value: auto
+      - key: OLLAMA_BASE_URL
+        fromService:
+          type: web
+          name: cosmic-rag-ollama
+          envVarKey: RENDER_EXTERNAL_URL
     healthCheckPath: /health
