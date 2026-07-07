@@ -223,6 +223,7 @@
   position: relative;
   border-radius: 24px;
   padding: 1px;
+  overflow: hidden;
   background: linear-gradient(
     135deg,
     rgba(0, 229, 255, 0.35) 0%,
@@ -241,23 +242,39 @@
   background: linear-gradient(165deg, rgba(12, 14, 32, 0.42) 0%, rgba(4, 6, 18, 0.5) 100%);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  overflow: hidden;
+  overflow: visible;
 }
 
 .toolbar {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
   padding: 0.65rem 1rem 0;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 5;
 }
 
 .modelWrap {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.45rem;
   min-width: 0;
+}
+
+.modelField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.selectWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: min(220px, 55vw);
 }
 
 .modelLabel {
@@ -270,17 +287,20 @@
 }
 
 .modelSelect {
+  width: 100%;
   min-height: 36px;
-  max-width: min(220px, 55vw);
-  padding: 0.35rem 0.65rem;
+  padding: 0.35rem 2rem 0.35rem 0.65rem;
   border-radius: 10px;
   border: 1px solid rgba(0, 229, 255, 0.2);
-  background: rgba(3, 6, 18, 0.55);
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  background: rgba(3, 6, 18, 0.85);
   color: #e2e8f0;
+  font-family: inherit;
   font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
 }
 
 .modelSelect:focus {
@@ -289,9 +309,26 @@
   box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.08);
 }
 
-.modelSelect:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.modelSelect option {
+  background: #0a0e1e;
+  color: #e2e8f0;
+}
+
+.selectChevron {
+  position: absolute;
+  right: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.modelsError {
+  margin: 0;
+  max-width: min(220px, 55vw);
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: #fbbf24;
 }
 
 .clearBtn {

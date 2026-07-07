@@ -18,7 +18,7 @@ import {
   type Conversation,
   type SourceRef,
 } from '@/lib/chatHistory';
-import { apiHeaders, getApiBaseUrl, parseApiErrorResponse } from '@/lib/api';
+import { apiHeaders, fetchChatModels, getApiBaseUrl, parseApiErrorResponse, type ChatModel } from '@/lib/api';
 import { formatRelativeTime } from '@/lib/time';
 import styles from './ChatInterface.module.css';
 
@@ -57,14 +57,20 @@ interface DocumentListItem {
   chunks: number;
 }
 
-interface ModelOption {
-  id: string;
-  label: string;
-  provider: string;
-  available: boolean;
-}
+interface ModelOption extends ChatModel {}
 
-const ChatInterface: React.FC = () => {
+const FALLBACK_MODELS: ModelOption[] = [
+  { id: 'auto', label: 'Auto Router', provider: 'router', available: true },
+];
+
+const ChatInterface: React.FC<{ variant?: 'default' | 'coding' }> = ({ variant = 'default' }) => {
+  const isCoding = variant === 'coding';
+  const assistantLabel = isCoding ? 'Code AI' : 'Cosmic AI';
+  const emptyTitle = isCoding ? 'Write, debug, and ship faster' : 'Indexed knowledge, cosmic answers';
+  const emptySubtitle = isCoding
+    ? 'Paste a snippet, describe a bug, or ask for a refactor. Upload docs to ground answers in your codebase context.'
+    : 'Upload documents below, then ask questions in plain language. Retrieval runs against your corpus before the model responds.';
+  const inputPlaceholder = isCoding ? 'Ask about code, debug an error, or request a refactor…' : 'Ask the cosmos...';
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -73,7 +79,8 @@ const ChatInterface: React.FC = () => {
   const [isClearing, setIsClearing] = useState(false);
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [docError, setDocError] = useState<string | null>(null);
-  const [models, setModels] = useState<ModelOption[]>([]);
+  const [models, setModels] = useState<ModelOption[]>(FALLBACK_MODELS);
+  const [modelsError, setModelsError] = useState('');
   const [selectedModelId, setSelectedModelId] = useState('auto');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversationCreatedAt, setConversationCreatedAt] = useState<string | null>(null);
@@ -81,7 +88,6 @@ const ChatInterface: React.FC = () => {
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const restoredRef = useRef(false);
 
   const apiBase = getApiBaseUrl();
 
@@ -113,7 +119,6 @@ const ChatInterface: React.FC = () => {
         setConversationCreatedAt(conv.createdAt);
         setMessages(conv.messages.map(messageFromStored));
         setSelectedModelId(conv.modelId);
-        restoredRef.current = true;
         refreshConversationList();
         return;
       }
@@ -130,24 +135,31 @@ const ChatInterface: React.FC = () => {
   }, [refreshDocuments]);
 
   useEffect(() => {
-    const loadModels = async () => {
-      try {
-        const res = await fetch(`${apiBase}/models`);
-        if (!res.ok) return;
-        const data = (await res.json()) as ModelOption[];
-        if (Array.isArray(data) && data.length > 0) {
-          setModels(data);
-          if (!restoredRef.current) {
-            const auto = data.find((m) => m.id === 'auto');
-            if (auto) setSelectedModelId('auto');
-          }
-        }
-      } catch {
-        /* models endpoint optional until backend restarts */
-      }
+    let cancelled = false;
+    fetchChatModels()
+      .then((data) => {
+        if (cancelled) return;
+        setModels(data);
+        setModelsError('');
+        setSelectedModelId((current) => {
+          if (data.some((m) => m.id === current)) return current;
+          return data.find((m) => m.id === 'auto')?.id ?? data[0]?.id ?? 'auto';
+        });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setModels(FALLBACK_MODELS);
+        setModelsError(
+          err instanceof Error ? err.message : 'Could not load models from the API.',
+        );
+        setSelectedModelId((current) =>
+          FALLBACK_MODELS.some((m) => m.id === current) ? current : 'auto',
+        );
+      });
+    return () => {
+      cancelled = true;
     };
-    void loadModels();
-  }, [apiBase]);
+  }, []);
 
   useEffect(() => {
     const id = window.setInterval(() => refreshRelativeTimes(), 30000);
@@ -394,26 +406,35 @@ const ChatInterface: React.FC = () => {
       <div className={styles.shell}>
         <div className={styles.shellInner}>
           <div className={styles.toolbar}>
-            <label className={styles.modelWrap}>
+            <label className={styles.modelWrap} htmlFor="chat-model-select">
               <span className={styles.modelLabel}>Model</span>
-              <select
-                className={styles.modelSelect}
-                value={selectedModelId}
-                onChange={(e) => setSelectedModelId(e.target.value)}
-                disabled={isLoading || models.length === 0}
-                aria-label="Select AI model"
-              >
-                {models.length === 0 ? (
-                  <option value="auto">Auto Router</option>
-                ) : (
-                  models.map((m) => (
-                    <option key={m.id} value={m.id} disabled={!m.available && m.id !== 'auto'}>
-                      {m.label}
-                      {!m.available && m.id !== 'auto' ? ' (unavailable)' : ''}
-                    </option>
-                  ))
-                )}
-              </select>
+              <div className={styles.modelField}>
+                <div className={styles.selectWrap}>
+                  <select
+                    id="chat-model-select"
+                    className={styles.modelSelect}
+                    value={models.some((m) => m.id === selectedModelId) ? selectedModelId : 'auto'}
+                    onChange={(e) => setSelectedModelId(e.target.value)}
+                    aria-label="Select AI model"
+                    aria-describedby={modelsError ? 'chat-models-error' : undefined}
+                  >
+                    {models.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                        {!m.available && m.id !== 'auto' ? ' (setup needed)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <svg className={styles.selectChevron} width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                {modelsError ? (
+                  <p id="chat-models-error" className={styles.modelsError} role="status">
+                    {modelsError}
+                  </p>
+                ) : null}
+              </div>
             </label>
             <div className={styles.toolbarActions}>
               <button
@@ -452,10 +473,9 @@ const ChatInterface: React.FC = () => {
             {messages.length === 0 && !isLoading && (
               <div className={styles.emptyState}>
                 <div className={styles.emptyOrbit} aria-hidden />
-                <h2 className={styles.emptyTitle}>Indexed knowledge, cosmic answers</h2>
+                <h2 className={styles.emptyTitle}>{emptyTitle}</h2>
                 <p className={styles.emptySubtitle}>
-                  Upload documents below, then ask questions in plain language. Retrieval runs against your
-                  corpus before the model responds.
+                  {emptySubtitle}
                 </p>
               </div>
             )}
@@ -475,7 +495,7 @@ const ChatInterface: React.FC = () => {
                     <span
                       className={`${styles.roleLabel} ${msg.role === 'assistant' ? styles.roleLabelAssistant : styles.roleLabelUser}`}
                     >
-                      {msg.role === 'user' ? 'You' : 'Cosmic AI'}
+                      {msg.role === 'user' ? 'You' : assistantLabel}
                     </span>
                     <span className={styles.time} suppressHydrationWarning>
                       {formatRelativeTime(msg.timestamp)}
@@ -512,7 +532,7 @@ const ChatInterface: React.FC = () => {
                   <IconCosmic />
                 </div>
                 <div className={styles.typingCard}>
-                  <span>Cosmic AI is thinking</span>
+                  <span>{assistantLabel} is thinking</span>
                   <span className={styles.dots} aria-hidden>
                     <span />
                     <span />
@@ -530,7 +550,7 @@ const ChatInterface: React.FC = () => {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask the cosmos..."
+                placeholder={inputPlaceholder}
                 className={styles.input}
                 disabled={isLoading}
                 aria-label="Message"

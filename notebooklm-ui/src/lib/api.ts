@@ -3,12 +3,31 @@
  * - Default: same-origin proxy `/api/rag` (see next.config.ts rewrites → http://127.0.0.1:8000).
  * - Override with NEXT_PUBLIC_API_URL or NEXT_PUBLIC_BACKEND_URL for production or direct calls.
  */
+function isLocalBackendUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url.includes('://') ? url : `http://${url}`);
+    return (
+      (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost') &&
+      (!parsed.port || parsed.port === '8000')
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function getApiBaseUrl(): string {
   const fromEnv =
     process.env.NEXT_PUBLIC_API_URL?.trim() ||
     process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
   if (fromEnv) {
-    return fromEnv.replace(/\/$/, '');
+    const normalized = fromEnv.replace(/\/$/, '');
+    if (typeof window !== 'undefined' && isLocalBackendUrl(normalized)) {
+      const host = window.location.hostname;
+      if (host !== '127.0.0.1' && host !== 'localhost') {
+        return '/api/rag';
+      }
+    }
+    return normalized;
   }
   // Local dev: Next rewrites /api/rag → http://127.0.0.1:8000 (see next.config.ts).
   // Vercel: set NEXT_PUBLIC_API_URL in Project → Environment Variables to your Render API URL.
@@ -52,6 +71,26 @@ export interface GenerateImageResult {
   seed: number;
   output: string;
   timestamp: string;
+}
+
+export interface ChatModel {
+  id: string;
+  label: string;
+  provider: string;
+  available: boolean;
+}
+
+/** Fetch the catalog of chat / RAG models from the backend. */
+export async function fetchChatModels(): Promise<ChatModel[]> {
+  const res = await fetch(`${getApiBaseUrl()}/models`);
+  if (!res.ok) {
+    throw new Error(await parseApiErrorResponse(res));
+  }
+  const data = (await res.json()) as ChatModel[];
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('No models returned from the API.');
+  }
+  return data;
 }
 
 /** Fetch the catalog of image-generation models from the backend. */

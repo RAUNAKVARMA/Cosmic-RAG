@@ -1,0 +1,209 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #020203;
+}
+
+.vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 42%, transparent 0%, rgba(0, 0, 0, 0.5) 100%),
+    radial-gradient(ellipse 120% 50% at 50% 100%, rgba(2, 4, 3, 0.75) 0%, transparent 55%);
+}
+
+.nav {
+  position: sticky;
+  top: 0.75rem;
+  z-index: 20;
+  margin: 0.75rem 0.9rem 0;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  box-shadow: var(--glass-shadow);
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #86efac;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  background: rgba(74, 222, 128, 0.06);
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.backLink:hover {
+  background: rgba(74, 222, 128, 0.12);
+  border-color: rgba(74, 222, 128, 0.45);
+  box-shadow: 0 0 24px rgba(74, 222, 128, 0.12);
+  transform: translateX(-2px);
+}
+
+.navCenter {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.navTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #e2e8f0;
+}
+
+.badge {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(134, 239, 172, 0.85);
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.main {
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.shell {
+  width: 100%;
+  max-width: 900px;
+  border-radius: 24px;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(74, 222, 128, 0.35) 0%,
+    rgba(163, 230, 53, 0.25) 45%,
+    rgba(180, 83, 9, 0.22) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 24px 80px rgba(0, 0, 0, 0.55),
+    0 0 80px rgba(74, 222, 128, 0.06);
+}
+
+.shellInner {
+  border-radius: 23px;
+  padding: 1.5rem 1.35rem 1.75rem;
+  background: linear-gradient(165deg, rgba(12, 20, 16, 0.42) 0%, rgba(4, 8, 6, 0.5) 100%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+
+.header {
+  margin-bottom: 1.25rem;
+}
+
+.title {
+  margin: 0 0 0.45rem;
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
+  font-weight: 700;
+  background: linear-gradient(105deg, #bbf7d0 0%, #4ade80 40%, #a3e635 55%, #d97706 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #94a3b8;
+}
+
+.footerNote {
+  margin: 1rem 0 0;
+  font-size: 0.78rem;
+  color: #64748b;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .nav {
+    margin: 0.5rem 0.65rem 0;
+    padding: 0.65rem 0.85rem;
+    gap: 0.5rem;
+    border-radius: 18px;
+  }
+
+  .backLink {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.65rem;
+  }
+
+  .backText {
+    display: none;
+  }
+
+  .navCenter {
+    justify-content: flex-start;
+  }
+
+  .navTitle {
+    font-size: 0.88rem;
+  }
+
+  .badge {
+    display: none;
+  }
+
+  .main {
+    padding: 1rem 0.65rem 2rem;
+  }
+
+  .shell {
+    border-radius: 18px;
+  }
+
+  .shellInner {
+    padding: 1.1rem 0.85rem 1.25rem;
+    border-radius: 17px;
+  }
+
+  .header {
+    margin-bottom: 1rem;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+  }
+
+  .footerNote {
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .backLink {
+    padding: 0.4rem 0.5rem;
+  }
+}

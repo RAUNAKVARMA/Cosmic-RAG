@@ -3,8 +3,9 @@
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import NebulaCodingHint from '@/components/NebulaCodingHint';
 import NebulaStudioHint from '@/components/NebulaStudioHint';
-import type { NebulaHoverState } from '@/components/nebulaHover';
+import type { NebulaHoverState, NebulaId } from '@/components/nebulaHover';
 import styles from './page.module.css';
 
 const SpaceScene = dynamic(() => import('@/components/SpaceScene'), { ssr: false });
@@ -12,45 +13,68 @@ const SpaceScene = dynamic(() => import('@/components/SpaceScene'), { ssr: false
 export default function Home() {
   const router = useRouter();
   const [nebulaHover, setNebulaHover] = useState<NebulaHoverState | null>(null);
-  const [studioExpanded, setStudioExpanded] = useState(false);
-  const studioExpandedRef = useRef(false);
+  const [expandedNebula, setExpandedNebula] = useState<NebulaId | null>(null);
+  const expandedNebulaRef = useRef<NebulaId | null>(null);
 
   useEffect(() => {
-    studioExpandedRef.current = studioExpanded;
-  }, [studioExpanded]);
+    expandedNebulaRef.current = expandedNebula;
+  }, [expandedNebula]);
 
   const enter = () => router.push('/chat');
 
   const handleNebulaHoverChange = useCallback((state: NebulaHoverState | null) => {
     if (!state?.visible) {
-      if (!studioExpandedRef.current) {
+      if (!expandedNebulaRef.current) {
         setNebulaHover(null);
       }
       return;
     }
-    setNebulaHover({ x: Math.round(state.x), y: Math.round(state.y), visible: true });
+    setNebulaHover({
+      id: state.id,
+      x: Math.round(state.x),
+      y: Math.round(state.y),
+      visible: true,
+    });
   }, []);
 
-  const handleNebulaClick = useCallback(() => {
-    setStudioExpanded(true);
+  const handleImageStudioClick = useCallback(() => {
+    setExpandedNebula('image-studio');
   }, []);
 
-  const dismissStudio = useCallback(() => {
-    setStudioExpanded(false);
+  const handleCodingAssistantClick = useCallback(() => {
+    setExpandedNebula('coding-assistant');
+  }, []);
+
+  const dismissNebula = useCallback(() => {
+    setExpandedNebula(null);
     setNebulaHover(null);
   }, []);
 
-  const openStudio = useCallback(() => {
-    setStudioExpanded(false);
+  const openImageStudio = useCallback(() => {
+    setExpandedNebula(null);
     setNebulaHover(null);
     router.push('/image-studio');
   }, [router]);
+
+  const openCodingAssistant = useCallback(() => {
+    setExpandedNebula(null);
+    setNebulaHover(null);
+    router.push('/coding-assistant');
+  }, [router]);
+
+  const showImageStudio =
+    expandedNebula === 'image-studio' ||
+    (nebulaHover?.id === 'image-studio' && nebulaHover.visible);
+  const showCodingAssistant =
+    expandedNebula === 'coding-assistant' ||
+    (nebulaHover?.id === 'coding-assistant' && nebulaHover.visible);
 
   return (
     <>
       <SpaceScene
         onBlackHoleClick={enter}
-        onImageStudioNebulaClick={handleNebulaClick}
+        onImageStudioNebulaClick={handleImageStudioClick}
+        onCodingAssistantNebulaClick={handleCodingAssistantClick}
         onNebulaHoverChange={handleNebulaHoverChange}
       />
       <div className={styles.overlay}>
@@ -75,14 +99,24 @@ export default function Home() {
           <p className={styles.ctaHint}>Or click the black hole to dive in</p>
         </div>
       </div>
-      {(studioExpanded || (nebulaHover?.visible ?? false)) && (
+      {showImageStudio && (
         <NebulaStudioHint
-          x={nebulaHover?.x ?? 0}
-          y={nebulaHover?.y ?? 0}
-          visible={nebulaHover?.visible ?? false}
-          expanded={studioExpanded}
-          onOpen={openStudio}
-          onDismiss={dismissStudio}
+          x={nebulaHover?.id === 'image-studio' ? nebulaHover.x : 0}
+          y={nebulaHover?.id === 'image-studio' ? nebulaHover.y : 0}
+          visible={nebulaHover?.id === 'image-studio' ? nebulaHover.visible : false}
+          expanded={expandedNebula === 'image-studio'}
+          onOpen={openImageStudio}
+          onDismiss={dismissNebula}
+        />
+      )}
+      {showCodingAssistant && (
+        <NebulaCodingHint
+          x={nebulaHover?.id === 'coding-assistant' ? nebulaHover.x : 0}
+          y={nebulaHover?.id === 'coding-assistant' ? nebulaHover.y : 0}
+          visible={nebulaHover?.id === 'coding-assistant' ? nebulaHover.visible : false}
+          expanded={expandedNebula === 'coding-assistant'}
+          onOpen={openCodingAssistant}
+          onDismiss={dismissNebula}
         />
       )}
     </>
