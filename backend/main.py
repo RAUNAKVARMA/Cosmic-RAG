@@ -14,6 +14,15 @@ from pydantic import BaseModel, Field
 load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
 from app.document_parser import extract_text_from_bytes
+from app.document_store import (
+    chunk_count,
+    document_count,
+    hydrate_knowledge_graph,
+    load_all_chunks,
+    list_documents_summary,
+    save_document,
+)
+from app.database import database_url, init_db, is_connected
 from app.image_gen import ImageGenError, generate_image, list_image_models
 from app.knowledge_graph import KnowledgeGraphBuilder
 from app.llm_router import list_models
@@ -50,6 +59,27 @@ ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".csv"}
 vector_store = VectorStore()
 knowledge_graph = KnowledgeGraphBuilder()
 rag_engine = RAGEngine(vector_store, knowledge_graph)
+
+
+def _sync_vector_index_from_db() -> None:
+    """Rebuild FAISS from DB when the on-disk index is missing or out of sync."""
+    db_chunks = chunk_count()
+    if db_chunks == 0:
+        return
+    if vector_store.index.ntotal == db_chunks:
+        return
+    texts, metadata = load_all_chunks()
+    if not texts:
+        return
+    vectors = rag_engine.embed_chunks(texts)
+    vector_store.rebuild(vectors, metadata, texts)
+
+
+@app.on_event("startup")
+def on_startup() -> None:
+    init_db()
+    hydrate_knowledge_graph(knowledge_graph)
+    _sync_vector_index_from_db()
 
 
 class ChatTurn(BaseModel):
@@ -115,13 +145,23 @@ def _utc_iso() -> str:
 @app.get("/health")
 def health_check() -> dict:
     image_models = list_image_models()
+    chat_models = list_models()
     return {
         "status": "ok",
         "auth_required": bool(api_secret()),
+        "database": {
+            "connected": is_connected(),
+            "url_scheme": database_url().split("://", 1)[0],
+            "documents": document_count(),
+            "chunks": chunk_count(),
+        },
         "vector_index_path": vector_store.index_path,
         "vector_count": vector_store.index.ntotal,
+        "chat_models_total": len(chat_models),
+        "chat_models_available": sum(1 for m in chat_models if m.get("available")),
         "image_models_available": sum(1 for m in image_models if m.get("available")),
         "image_models_total": len(image_models),
+        "ollama_base_url": (os.getenv("OLLAMA_BASE_URL") or "").strip() or None,
     }
 
 
@@ -188,19 +228,22 @@ def generate_image_endpoint(
 
 @app.get("/documents")
 def list_documents() -> List[dict]:
-    """Return metadata for documents currently in the knowledge graph."""
-    out: List[dict] = []
-    for doc_id, meta in knowledge_graph.documents.items():
-        chunks = meta.get("chunks") or []
-        out.append(
-            {
-                "id": doc_id,
-                "name": meta.get("name", doc_id),
-                "type": meta.get("file_type", "unknown"),
-                "chunks": len(chunks),
-            }
-        )
-    return out
+    """Return metadata for documents stored in the database."""
+    try:
+        return list_documents_summary()
+    except Exception:
+        out: List[dict] = []
+        for doc_id, meta in knowledge_graph.documents.items():
+            chunks = meta.get("chunks") or []
+            out.append(
+                {
+                    "id": doc_id,
+                    "name": meta.get("name", doc_id),
+                    "type": meta.get("file_type", "unknown"),
+                    "chunks": len(chunks),
+                }
+            )
+        return out
 
 
 @app.post("/upload", dependencies=[Depends(verify_api_auth)])
@@ -258,6 +301,7 @@ async def upload_document(file: UploadFile = File(...)) -> dict:
             chunks,
         )
         knowledge_graph.add_document(doc_id, content, chunks, name=filename, file_type=file_type)
+        save_document(doc_id, filename, file_type, content, chunks)
     except Exception as exc:
         msg = str(exc).strip() or type(exc).__name__
         raise HTTPException(

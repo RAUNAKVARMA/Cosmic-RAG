@@ -1,9 +1,16 @@
-# Cosmic RAG on Render — two services:
+# Cosmic RAG on Render — three services + PostgreSQL:
+#   cosmic-rag-db      → PostgreSQL (documents, chunks metadata)
 #   cosmic-rag-ollama  → hosts llama3.2:1b (needs Standard 2GB+ RAM)
 #   cosmic-rag-api     → FastAPI + RAG (free tier OK)
 #
 # After deploy: set image-provider keys on cosmic-rag-api in the Render dashboard
 # (POLLINATIONS_API_KEY, REPLICATE_API_KEY, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN).
+
+databases:
+  - name: cosmic-rag-db
+    plan: free
+    databaseName: cosmic_rag
+    user: cosmic_rag
 
 services:
   - type: web
@@ -36,6 +43,10 @@ services:
     envVars:
       - key: VECTOR_INDEX_PATH
         value: /data/vector_index
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cosmic-rag-db
+          property: connectionString
       - key: API_SECRET
         sync: false
       - key: IMAGE_GEN_RATE_LIMIT

@@ -16,6 +16,17 @@ function isLocalBackendUrl(url: string): boolean {
 }
 
 export function getApiBaseUrl(): string {
+  // On Vercel/production, always use same-origin server proxy (see app/api/rag/[...path]/route.ts).
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host !== '127.0.0.1' && host !== 'localhost') {
+      return '/api/rag';
+    }
+  }
+  if (process.env.VERCEL) {
+    return '/api/rag';
+  }
+
   const fromEnv =
     process.env.NEXT_PUBLIC_API_URL?.trim() ||
     process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
@@ -30,7 +41,6 @@ export function getApiBaseUrl(): string {
     return normalized;
   }
   // Local dev: Next rewrites /api/rag → http://127.0.0.1:8000 (see next.config.ts).
-  // Vercel: set NEXT_PUBLIC_API_URL in Project → Environment Variables to your Render API URL.
   return '/api/rag';
 }
 

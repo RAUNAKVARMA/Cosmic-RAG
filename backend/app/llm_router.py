@@ -204,8 +204,9 @@ def _fetch_ollama_installed_models() -> List[str]:
 def _check_ollama_reachable() -> bool:
     if not HTTPX_AVAILABLE:
         return False
+    timeout = float(os.getenv("OLLAMA_HEALTH_TIMEOUT", "15"))
     try:
-        with httpx.Client(timeout=2.0) as client:
+        with httpx.Client(timeout=timeout) as client:
             return client.get(f"{_ollama_base()}/api/tags").status_code == 200
     except Exception:
         return False

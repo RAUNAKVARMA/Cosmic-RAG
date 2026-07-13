@@ -1,10 +1,17 @@
-# Deploy Cosmic RAG (with Ollama on Render)
+# Deploy Cosmic RAG (with Ollama + PostgreSQL on Render)
 
 Ollama does **not** run on Vercel. For a deployed app you need:
 
-1. **Vercel** — Next.js frontend (`notebooklm-ui`)
-2. **Render `cosmic-rag-api`** — FastAPI backend
+1. **Vercel** — Next.js frontend (`notebooklm-ui`) with server-side API proxy
+2. **Render `cosmic-rag-api`** — FastAPI backend + PostgreSQL
 3. **Render `cosmic-rag-ollama`** — Ollama server (separate Web Service)
+4. **Render `cosmic-rag-db`** — PostgreSQL (documents & chunks metadata)
+
+## Why models were not visible on Vercel
+
+On Vercel, `/api/rag` did **not** proxy to Render unless `NEXT_PUBLIC_API_URL` was set at build time. The frontend now uses a **Next.js server route** (`/api/rag/*`) that forwards to your Render API automatically.
+
+You still need API keys on Render for models to be **usable** (not just listed).
 
 ## Why Ollama needs its own service
 
@@ -49,14 +56,18 @@ Redeploy `cosmic-rag-api`.
 
 ## Step 2 — Vercel frontend
 
-In Vercel → Project → **Environment Variables**:
+In Vercel → Project → **Environment Variables** (Production):
 
 ```
-NEXT_PUBLIC_API_URL=https://cosmic-rag-api.onrender.com
-NEXT_PUBLIC_API_SECRET=<same value as API_SECRET on Render>
+BACKEND_URL=https://cosmic-rag-api.onrender.com
+BACKEND_API_SECRET=<same value as API_SECRET on Render>
 ```
 
-Redeploy the frontend.
+`BACKEND_API_SECRET` is server-only (not exposed in the browser). The proxy adds the Bearer token for `/chat`, `/upload`, and `/generate-image`.
+
+`NEXT_PUBLIC_API_URL` is **optional** now — the app uses same-origin `/api/rag` on Vercel.
+
+Redeploy the frontend after saving env vars.
 
 ## Production security (recommended)
 
@@ -79,15 +90,18 @@ Set the **same value** on Vercel as `NEXT_PUBLIC_API_SECRET` so the browser send
 
 > **Note:** `NEXT_PUBLIC_*` is visible in the client bundle. This stops casual abuse and bots, not determined attackers. For stronger security, proxy through Next.js server routes later.
 
-## Persistent RAG documents (Render disk)
+## Persistent data (PostgreSQL + Render disk)
 
-Without a disk, uploaded documents are **lost on every redeploy**. The blueprint mounts a 1 GB disk at `/data`:
+| Data | Storage |
+|------|---------|
+| Document text & chunk metadata | **PostgreSQL** (`cosmic-rag-db`) |
+| FAISS vector embeddings | **Render disk** at `/data/vector_index` |
 
-```
-VECTOR_INDEX_PATH=/data/vector_index
-```
+On startup the API syncs FAISS from PostgreSQL if the index is missing or out of date.
 
-After first deploy with the disk, uploads persist across restarts.
+Blueprint sets `DATABASE_URL` automatically. For manual setup, add a Render PostgreSQL instance and set `DATABASE_URL` on `cosmic-rag-api`.
+
+Without PostgreSQL, the API falls back to SQLite on the `/data` disk.
 
 ## Step 3 — Verify
 
@@ -95,6 +109,15 @@ After first deploy with the disk, uploads persist across restarts.
 curl https://cosmic-rag-api.onrender.com/health
 curl https://cosmic-rag-api.onrender.com/models
 curl https://cosmic-rag-api.onrender.com/image-models
+```
+
+`/health` now includes `database.connected`, `chat_models_available`, and `ollama_base_url`.
+
+From the Vercel site (after redeploy):
+
+```bash
+curl https://YOUR-VERCEL-APP.vercel.app/api/rag/health
+curl https://YOUR-VERCEL-APP.vercel.app/api/rag/models
 ```
 
 Expect `/health` to include `"auth_required": true` when `API_SECRET` is set.
@@ -129,7 +152,8 @@ Redeploy after saving. Models without keys still appear in the UI but show **(se
 Vercel must have:
 
 ```
-NEXT_PUBLIC_API_URL=https://cosmic-rag-api.onrender.com
+BACKEND_URL=https://cosmic-rag-api.onrender.com
+BACKEND_API_SECRET=<same as Render API_SECRET>
 ```
 
 ## Cold starts (free / spin-down)

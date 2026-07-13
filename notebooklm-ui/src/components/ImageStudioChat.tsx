@@ -496,7 +496,7 @@ export default function ImageStudioChat() {
 
       {!isHistoryView && modelsError && (
         <p className={styles.setupHint} role="alert">
-          {modelsError} Check NEXT_PUBLIC_API_URL on Vercel points to your Render API.
+          {modelsError} Set BACKEND_URL on Vercel to your Render API URL and redeploy.
         </p>
       )}
 

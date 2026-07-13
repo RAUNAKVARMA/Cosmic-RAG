@@ -53,6 +53,17 @@ class VectorStore:
         self.chunk_texts.extend(texts)
         self._save_index()
 
+    def rebuild(self, vectors: np.ndarray, metadata: List[Dict], texts: List[str]) -> None:
+        """Replace the entire index from stored chunks (e.g. after DB restore)."""
+        self.index = faiss.IndexFlatL2(self.dimension)
+        self.chunks_metadata = []
+        self.chunk_texts = []
+        if len(texts) > 0:
+            self.index.add(vectors)
+            self.chunks_metadata = list(metadata)
+            self.chunk_texts = list(texts)
+        self._save_index()
+
     def search(self, query_vector: np.ndarray, top_k: int = 5):
         """Search for similar vectors"""
         if self.index.ntotal == 0:
